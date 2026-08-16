@@ -20,16 +20,13 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.marmic.plain.data.Settings
-import com.marmic.plain.model.Layout
-import com.marmic.plain.model.WidgetPage
-import com.marmic.plain.model.WidgetSpec
+import com.marmic.plain.model.HomeLayout
 import com.marmic.plain.ui.LauncherRoot
 import com.marmic.plain.ui.theme.PlainTheme
 import com.marmic.plain.widget.PlainAppWidgetHost
 import com.marmic.plain.widget.WidgetInstaller
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import java.util.UUID
 
 private const val TAG = "MainActivity"
 
@@ -40,9 +37,6 @@ class MainActivity : ComponentActivity() {
     private lateinit var appWidgetHost: PlainAppWidgetHost
     private lateinit var appWidgetManager: AppWidgetManager
     private lateinit var widgetInstaller: WidgetInstaller
-
-    /** The page a pending widget install belongs to. */
-    private var pendingPageId: String? = null
 
     /** Set when the host has been told to start listening, so we never unbalance it. */
     private var listening = false
@@ -61,7 +55,7 @@ class MainActivity : ComponentActivity() {
             activity = this,
             host = appWidgetHost,
             appWidgetManager = appWidgetManager,
-            onWidgetReady = ::attachWidgetToPendingPage,
+            onWidgetReady = ::addWidgetToHome,
         )
 
         lifecycleScope.launch { pruneOrphanedWidgetIds() }
@@ -70,7 +64,7 @@ class MainActivity : ComponentActivity() {
             val settings by plainApp.settingsRepository.settings
                 .collectAsStateWithLifecycle(initialValue = Settings.DEFAULT)
             val layout by plainApp.layoutRepository.layout
-                .collectAsStateWithLifecycle(initialValue = Layout.EMPTY)
+                .collectAsStateWithLifecycle(initialValue = HomeLayout.EMPTY)
             val apps by plainApp.appRepository.apps.collectAsStateWithLifecycle()
 
             // FLAG_SHOW_WALLPAPER is a window flag, so it has to be applied to
@@ -109,14 +103,9 @@ class MainActivity : ComponentActivity() {
                     onRenameApp = { key, label ->
                         lifecycleScope.launch { plainApp.settingsRepository.rename(key, label) }
                     },
-                    onAddPage = ::addWidgetPage,
-                    onRenamePage = ::renameWidgetPage,
-                    onRemovePage = ::removeWidgetPage,
-                    onPickWidget = { pageId, provider ->
-                        pendingPageId = pageId
-                        widgetInstaller.install(provider)
-                    },
-                    onUpdateWidget = ::updateWidget,
+                    onPickWidget = { provider -> widgetInstaller.install(provider) },
+                    onSetWidgetHeight = ::setWidgetHeight,
+                    onMoveWidget = ::moveWidget,
                     onRemoveWidget = ::removeWidget,
                     onSetDefaultLauncher = ::requestHomeRole,
                     onOpenAccessibilitySettings = ::openAccessibilitySettings,
@@ -163,82 +152,23 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun attachWidgetToPendingPage(appWidgetId: Int) {
-        val pageId = pendingPageId
-        pendingPageId = null
-        if (pageId == null) {
-            runCatching { appWidgetHost.deleteAppWidgetId(appWidgetId) }
-            return
-        }
-        lifecycleScope.launch {
-            plainApp.layoutRepository.update { layout ->
-                layout.copy(
-                    pages = layout.pages.map { page ->
-                        if (page.id == pageId) {
-                            page.copy(widgets = page.widgets + WidgetSpec(appWidgetId = appWidgetId))
-                        } else {
-                            page
-                        }
-                    },
-                )
-            }
-        }
+    private fun addWidgetToHome(appWidgetId: Int) {
+        lifecycleScope.launch { plainApp.layoutRepository.addWidget(appWidgetId) }
     }
 
-    private fun addWidgetPage() {
-        lifecycleScope.launch {
-            plainApp.layoutRepository.update { layout ->
-                layout.copy(pages = layout.pages + WidgetPage(id = UUID.randomUUID().toString()))
-            }
-        }
+    private fun setWidgetHeight(appWidgetId: Int, heightDp: Int) {
+        lifecycleScope.launch { plainApp.layoutRepository.setWidgetHeight(appWidgetId, heightDp) }
     }
 
-    private fun renameWidgetPage(pageId: String, title: String) {
-        lifecycleScope.launch {
-            plainApp.layoutRepository.update { layout ->
-                layout.copy(
-                    pages = layout.pages.map { if (it.id == pageId) it.copy(title = title.trim()) else it },
-                )
-            }
-        }
-    }
-
-    private fun removeWidgetPage(pageId: String) {
-        lifecycleScope.launch {
-            val removed = plainApp.layoutRepository.current().pages.firstOrNull { it.id == pageId }
-            plainApp.layoutRepository.update { layout ->
-                layout.copy(pages = layout.pages.filterNot { it.id == pageId })
-            }
-            // Release the host ids only after the layout no longer references them.
-            removed?.widgets?.forEach { runCatching { appWidgetHost.deleteAppWidgetId(it.appWidgetId) } }
-        }
-    }
-
-    private fun updateWidget(appWidgetId: Int, transform: (WidgetSpec) -> WidgetSpec) {
-        lifecycleScope.launch {
-            plainApp.layoutRepository.update { layout ->
-                layout.copy(
-                    pages = layout.pages.map { page ->
-                        page.copy(
-                            widgets = page.widgets.map { spec ->
-                                if (spec.appWidgetId == appWidgetId) transform(spec) else spec
-                            },
-                        )
-                    },
-                )
-            }
-        }
+    private fun moveWidget(appWidgetId: Int, delta: Int) {
+        lifecycleScope.launch { plainApp.layoutRepository.moveWidget(appWidgetId, delta) }
     }
 
     private fun removeWidget(appWidgetId: Int) {
         lifecycleScope.launch {
-            plainApp.layoutRepository.update { layout ->
-                layout.copy(
-                    pages = layout.pages.map { page ->
-                        page.copy(widgets = page.widgets.filterNot { it.appWidgetId == appWidgetId })
-                    },
-                )
-            }
+            // Drop it from the layout first, so nothing tries to render a view
+            // for an id the host no longer owns.
+            plainApp.layoutRepository.removeWidget(appWidgetId)
             runCatching { appWidgetHost.deleteAppWidgetId(appWidgetId) }
         }
     }
@@ -249,7 +179,7 @@ class MainActivity : ComponentActivity() {
      * any the layout does not know about.
      */
     private suspend fun pruneOrphanedWidgetIds() {
-        val known = plainApp.layoutRepository.layout.first().allWidgetIds.toSet()
+        val known = plainApp.layoutRepository.layout.first().widgetIds.toSet()
         val allocated = runCatching { appWidgetHost.appWidgetIds }.getOrNull() ?: return
         allocated.filterNot { it in known }.forEach {
             runCatching { appWidgetHost.deleteAppWidgetId(it) }

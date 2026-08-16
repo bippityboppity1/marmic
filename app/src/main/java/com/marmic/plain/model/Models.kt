@@ -26,37 +26,36 @@ data class AppEntry(
     }
 }
 
-/** One hosted app widget on a widget page. */
+/** One hosted app widget, stacked on the home screen. */
 @Serializable
 data class WidgetSpec(
     val appWidgetId: Int,
-    /** Ignored when [fillPage] is set. */
     val heightDp: Int = DEFAULT_HEIGHT_DP,
-    /** Give the widget the whole page — this is what makes a month calendar usable. */
-    val fillPage: Boolean = false,
 ) {
     companion object {
-        const val DEFAULT_HEIGHT_DP = 260
-        const val MIN_HEIGHT_DP = 60
-        const val MAX_HEIGHT_DP = 1200
+        const val DEFAULT_HEIGHT_DP = 300
+        const val MIN_HEIGHT_DP = 80
+        const val MAX_HEIGHT_DP = 900
+
+        /** Offered in the widget's long-press menu. A month grid wants ~360. */
+        val HEIGHT_PRESETS = listOf(120, 180, 240, 300, 360, 440)
     }
 }
 
-/** A swipeable page holding a vertical stack of widgets. */
+/**
+ * The home screen: widgets first, in order, then the favourite apps.
+ *
+ * There are no widget pages — everything lives on one scrolling home screen,
+ * so a month calendar and a task list sit above the app list rather than a
+ * swipe away.
+ */
 @Serializable
-data class WidgetPage(
-    val id: String,
-    val title: String = "",
+data class HomeLayout(
     val widgets: List<WidgetSpec> = emptyList(),
-)
-
-@Serializable
-data class Layout(
-    val pages: List<WidgetPage> = emptyList(),
 ) {
-    val allWidgetIds: List<Int> get() = pages.flatMap { page -> page.widgets.map { it.appWidgetId } }
+    val widgetIds: List<Int> get() = widgets.map { it.appWidgetId }
 
     companion object {
-        val EMPTY = Layout()
+        val EMPTY = HomeLayout()
     }
 }

@@ -8,18 +8,11 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -27,27 +20,22 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import com.marmic.plain.data.Settings
 import com.marmic.plain.model.AppEntry
-import com.marmic.plain.model.Layout
+import com.marmic.plain.model.HomeLayout
 import com.marmic.plain.model.WidgetSpec
 import com.marmic.plain.system.PlainAccessibilityService
 import com.marmic.plain.ui.theme.LocalPlainColors
-import com.marmic.plain.ui.theme.LocalPlainTypography
 import com.marmic.plain.widget.PlainAppWidgetHost
 
 private enum class Overlay { NONE, DRAWER, SETTINGS, WIDGET_PICKER }
 
-private val WIDGET_HEIGHT_PRESETS = listOf(140, 200, 260, 340, 440)
-
 @Composable
 fun LauncherRoot(
     settings: Settings,
-    layout: Layout,
+    layout: HomeLayout,
     apps: List<AppEntry>,
     host: PlainAppWidgetHost,
     homeRequest: Int,
@@ -60,11 +48,9 @@ fun LauncherRoot(
     onMoveFavorite: (String, Int) -> Unit,
     onSetHidden: (String, Boolean) -> Unit,
     onRenameApp: (String, String?) -> Unit,
-    onAddPage: () -> Unit,
-    onRenamePage: (String, String) -> Unit,
-    onRemovePage: (String) -> Unit,
-    onPickWidget: (String, AppWidgetProviderInfo) -> Unit,
-    onUpdateWidget: (Int, (WidgetSpec) -> WidgetSpec) -> Unit,
+    onPickWidget: (AppWidgetProviderInfo) -> Unit,
+    onSetWidgetHeight: (Int, Int) -> Unit,
+    onMoveWidget: (Int, Int) -> Unit,
     onRemoveWidget: (Int) -> Unit,
     onSetDefaultLauncher: () -> Unit,
     onOpenAccessibilitySettings: () -> Unit,
@@ -73,7 +59,6 @@ fun LauncherRoot(
     val colors = LocalPlainColors.current
 
     var overlay by remember { mutableStateOf(Overlay.NONE) }
-    var pickerPageId by remember { mutableStateOf<String?>(null) }
     var menuApp by remember { mutableStateOf<AppEntry?>(null) }
     var renameApp by remember { mutableStateOf<AppEntry?>(null) }
     var menuWidgetId by remember { mutableStateOf<Int?>(null) }
@@ -84,8 +69,6 @@ fun LauncherRoot(
         settings.favorites.mapNotNull { key -> apps.firstOrNull { it.key == key } }
     }
 
-    val pagerState = rememberPagerState(pageCount = { 1 + layout.pages.size })
-
     // Long-pressing a hosted widget has to come back through the host, since the
     // touch is delivered to the widget's own view hierarchy.
     DisposableEffect(host) {
@@ -93,12 +76,9 @@ fun LauncherRoot(
         onDispose { host.onWidgetLongPress = null }
     }
 
-    // Pressing home while already here returns to the home page.
+    // Pressing home while already here closes whatever is open.
     LaunchedEffect(homeRequest) {
-        if (homeRequest > 0) {
-            overlay = Overlay.NONE
-            if (pagerState.currentPage != 0) pagerState.animateScrollToPage(0)
-        }
+        if (homeRequest > 0) overlay = Overlay.NONE
     }
 
     BackHandler(enabled = overlay != Overlay.NONE) { overlay = Overlay.NONE }
@@ -114,55 +94,29 @@ fun LauncherRoot(
             .fillMaxSize()
             .background(background),
     ) {
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier
-                .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.systemBars),
-        ) { pageIndex ->
-            if (pageIndex == 0) {
-                HomePage(
-                    favorites = favorites,
-                    labelFor = labelFor,
-                    onLaunch = onLaunchApp,
-                    onAppLongPress = { menuApp = it },
-                    onOpenDrawer = { overlay = Overlay.DRAWER },
-                    onOpenSettings = { overlay = Overlay.SETTINGS },
-                    onSwipeDown = {
-                        if (settings.swipeDownForNotifications) {
-                            PlainAccessibilityService.openNotifications()
-                        }
-                    },
-                    onDoubleTap = {
-                        if (settings.doubleTapToLock) {
-                            PlainAccessibilityService.lockScreen()
-                        }
-                    },
-                )
-            } else {
-                val page = layout.pages[pageIndex - 1]
-                WidgetPageView(
-                    page = page,
-                    host = host,
-                    onAddWidget = {
-                        pickerPageId = page.id
-                        overlay = Overlay.WIDGET_PICKER
-                    },
-                    onWidgetLongPress = { spec -> menuWidgetId = spec.appWidgetId },
-                )
-            }
-        }
-
-        if (layout.pages.isNotEmpty()) {
-            PageIndicator(
-                pageCount = 1 + layout.pages.size,
-                current = pagerState.currentPage,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .windowInsetsPadding(WindowInsets.navigationBars)
-                    .padding(bottom = 6.dp),
-            )
-        }
+        HomePage(
+            layout = layout,
+            host = host,
+            favorites = favorites,
+            labelFor = labelFor,
+            onLaunch = onLaunchApp,
+            onAppLongPress = { menuApp = it },
+            onOpenDrawer = { overlay = Overlay.DRAWER },
+            onOpenSettings = { overlay = Overlay.SETTINGS },
+            onSwipeDown = {
+                if (settings.swipeDownForNotifications) {
+                    PlainAccessibilityService.openNotifications()
+                }
+            },
+            onDoubleTap = {
+                if (settings.doubleTapToLock) {
+                    PlainAccessibilityService.lockScreen()
+                }
+            },
+            onAddWidget = { overlay = Overlay.WIDGET_PICKER },
+            onWidgetLongPress = { spec -> menuWidgetId = spec.appWidgetId },
+            modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars),
+        )
 
         AnimatedVisibility(
             visible = overlay == Overlay.DRAWER,
@@ -205,13 +159,8 @@ fun LauncherRoot(
                     onToggleFavorite = onToggleFavorite,
                     onMoveFavorite = onMoveFavorite,
                     onSetHidden = onSetHidden,
-                    onAddPage = onAddPage,
-                    onRenamePage = onRenamePage,
-                    onRemovePage = onRemovePage,
-                    onAddWidget = { pageId ->
-                        pickerPageId = pageId
-                        overlay = Overlay.WIDGET_PICKER
-                    },
+                    onAddWidget = { overlay = Overlay.WIDGET_PICKER },
+                    onWidgetMenu = { appWidgetId -> menuWidgetId = appWidgetId },
                     onSetDefaultLauncher = onSetDefaultLauncher,
                     onOpenAccessibilitySettings = onOpenAccessibilitySettings,
                     onClose = { overlay = Overlay.NONE },
@@ -228,14 +177,10 @@ fun LauncherRoot(
             ) {
                 WidgetPicker(
                     onPick = { provider ->
-                        pickerPageId?.let { pageId -> onPickWidget(pageId, provider) }
-                        pickerPageId = null
+                        onPickWidget(provider)
                         overlay = Overlay.NONE
                     },
-                    onClose = {
-                        pickerPageId = null
-                        overlay = Overlay.NONE
-                    },
+                    onClose = { overlay = Overlay.NONE },
                 )
             }
         }
@@ -281,53 +226,32 @@ fun LauncherRoot(
     }
 
     menuWidgetId?.let { widgetId ->
-        val spec = layout.pages.firstNotNullOfOrNull { page ->
-            page.widgets.firstOrNull { it.appWidgetId == widgetId }
-        }
+        val index = layout.widgets.indexOfFirst { it.appWidgetId == widgetId }
         PMenuDialog(
             title = "widget",
             onDismiss = { menuWidgetId = null },
             actions = buildList<Pair<String, () -> Unit>> {
-                add(
-                    (if (spec?.fillPage == true) "use a fixed height" else "fill the page") to {
-                        onUpdateWidget(widgetId) { it.copy(fillPage = !it.fillPage) }
+                WidgetSpec.HEIGHT_PRESETS.forEach { height ->
+                    add("height $height dp" to {
+                        onSetWidgetHeight(widgetId, height)
                         menuWidgetId = null
-                    },
-                )
-                if (spec?.fillPage != true) {
-                    WIDGET_HEIGHT_PRESETS.forEach { height ->
-                        add("height $height dp" to {
-                            onUpdateWidget(widgetId) { it.copy(heightDp = height, fillPage = false) }
-                            menuWidgetId = null
-                        })
-                    }
+                    })
                 }
+                if (index > 0) {
+                    add("move up" to { onMoveWidget(widgetId, -1); menuWidgetId = null })
+                }
+                if (index >= 0 && index < layout.widgets.lastIndex) {
+                    add("move down" to { onMoveWidget(widgetId, 1); menuWidgetId = null })
+                }
+                add("add another widget" to {
+                    menuWidgetId = null
+                    overlay = Overlay.WIDGET_PICKER
+                })
                 add("remove widget" to {
                     onRemoveWidget(widgetId)
                     menuWidgetId = null
                 })
             },
         )
-    }
-}
-
-/** Page position, drawn as text rather than as dots. */
-@Composable
-private fun PageIndicator(pageCount: Int, current: Int, modifier: Modifier = Modifier) {
-    val colors = LocalPlainColors.current
-    val type = LocalPlainTypography.current
-    Row(
-        modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.Center,
-    ) {
-        repeat(pageCount) { index ->
-            PText(
-                text = if (index == current) "—" else "·",
-                modifier = Modifier.padding(horizontal = 4.dp),
-                style = type.label,
-                color = if (index == current) colors.foreground else colors.dim,
-                transformCase = false,
-            )
-        }
     }
 }

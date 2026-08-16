@@ -9,7 +9,8 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.marmic.plain.model.Layout
+import com.marmic.plain.model.HomeLayout
+import com.marmic.plain.model.WidgetSpec
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -48,7 +49,7 @@ private object Keys {
     val doubleTapToLock = booleanPreferencesKey("double_tap_to_lock")
     val swipeDownForNotifications = booleanPreferencesKey("swipe_down_notifications")
 
-    val layout = stringPreferencesKey("layout")
+    val homeLayout = stringPreferencesKey("home_layout")
 }
 
 /** Decodes JSON, falling back to [fallback] rather than wiping the user's setup. */
@@ -142,15 +143,47 @@ class SettingsRepository(private val context: Context) {
 
 class LayoutRepository(private val context: Context) {
 
-    val layout: Flow<Layout> = context.dataStore.data.map { decodeOr(it[Keys.layout], Layout.EMPTY) }
+    val layout: Flow<HomeLayout> =
+        context.dataStore.data.map { decodeOr(it[Keys.homeLayout], HomeLayout.EMPTY) }
 
-    suspend fun update(transform: (Layout) -> Layout) {
+    suspend fun update(transform: (HomeLayout) -> HomeLayout) {
         context.dataStore.edit { prefs ->
-            val current = decodeOr(prefs[Keys.layout], Layout.EMPTY)
-            prefs[Keys.layout] = json.encodeToString(transform(current))
+            val current = decodeOr(prefs[Keys.homeLayout], HomeLayout.EMPTY)
+            prefs[Keys.homeLayout] = json.encodeToString(transform(current))
         }
     }
 
     /** Reads the layout once, outside of composition. */
-    suspend fun current(): Layout = layout.first()
+    suspend fun current(): HomeLayout = layout.first()
+
+    suspend fun addWidget(appWidgetId: Int) = update { layout ->
+        if (layout.widgets.any { it.appWidgetId == appWidgetId }) {
+            layout
+        } else {
+            layout.copy(widgets = layout.widgets + WidgetSpec(appWidgetId = appWidgetId))
+        }
+    }
+
+    suspend fun removeWidget(appWidgetId: Int) = update { layout ->
+        layout.copy(widgets = layout.widgets.filterNot { it.appWidgetId == appWidgetId })
+    }
+
+    suspend fun setWidgetHeight(appWidgetId: Int, heightDp: Int) = update { layout ->
+        val clamped = heightDp.coerceIn(WidgetSpec.MIN_HEIGHT_DP, WidgetSpec.MAX_HEIGHT_DP)
+        layout.copy(
+            widgets = layout.widgets.map {
+                if (it.appWidgetId == appWidgetId) it.copy(heightDp = clamped) else it
+            },
+        )
+    }
+
+    /** Moves a widget up (-1) or down (+1) the home stack. */
+    suspend fun moveWidget(appWidgetId: Int, delta: Int) = update { layout ->
+        val widgets = layout.widgets.toMutableList()
+        val from = widgets.indexOfFirst { it.appWidgetId == appWidgetId }
+        val to = from + delta
+        if (from < 0 || to !in widgets.indices) return@update layout
+        widgets.add(to, widgets.removeAt(from))
+        layout.copy(widgets = widgets)
+    }
 }

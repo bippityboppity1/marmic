@@ -1,5 +1,6 @@
 package com.marmic.plain.ui
 
+import android.appwidget.AppWidgetManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,14 +15,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.marmic.plain.data.ClockSize
 import com.marmic.plain.data.Palette
 import com.marmic.plain.data.Settings
 import com.marmic.plain.data.Typeface
 import com.marmic.plain.model.AppEntry
-import com.marmic.plain.model.Layout
-import com.marmic.plain.model.WidgetPage
+import com.marmic.plain.model.HomeLayout
 import com.marmic.plain.ui.theme.LocalPlainColors
 import com.marmic.plain.ui.theme.LocalPlainTypography
 
@@ -33,7 +34,7 @@ private val TEXT_SCALE_LABELS = listOf("xs", "s", "m", "l", "xl", "xxl")
 @Composable
 fun SettingsScreen(
     settings: Settings,
-    layout: Layout,
+    layout: HomeLayout,
     apps: List<AppEntry>,
     labelFor: (AppEntry) -> String,
     accessibilityEnabled: Boolean,
@@ -41,10 +42,8 @@ fun SettingsScreen(
     onToggleFavorite: (String) -> Unit,
     onMoveFavorite: (String, Int) -> Unit,
     onSetHidden: (String, Boolean) -> Unit,
-    onAddPage: () -> Unit,
-    onRenamePage: (String, String) -> Unit,
-    onRemovePage: (String) -> Unit,
-    onAddWidget: (String) -> Unit,
+    onAddWidget: () -> Unit,
+    onWidgetMenu: (Int) -> Unit,
     onSetDefaultLauncher: () -> Unit,
     onOpenAccessibilitySettings: () -> Unit,
     onClose: () -> Unit,
@@ -86,10 +85,8 @@ fun SettingsScreen(
 
                 SettingsRoute.WIDGETS -> WidgetSettings(
                     layout = layout,
-                    onAddPage = onAddPage,
-                    onRenamePage = onRenamePage,
-                    onRemovePage = onRemovePage,
                     onAddWidget = onAddWidget,
+                    onWidgetMenu = onWidgetMenu,
                 )
 
                 SettingsRoute.GESTURES -> GestureSettings(
@@ -113,7 +110,7 @@ private fun RootSettings(onNavigate: (SettingsRoute) -> Unit) {
         PValueRow("appearance", "palette, type, wallpaper", { onNavigate(SettingsRoute.APPEARANCE) })
         PValueRow("home", "clock, date, favourites", { onNavigate(SettingsRoute.HOME) })
         PValueRow("apps", "hidden apps, search", { onNavigate(SettingsRoute.APPS) })
-        PValueRow("widgets", "pages and widgets", { onNavigate(SettingsRoute.WIDGETS) })
+        PValueRow("widgets", "what sits on the home screen", { onNavigate(SettingsRoute.WIDGETS) })
         PValueRow("gestures", "lock, notifications, default launcher", { onNavigate(SettingsRoute.GESTURES) })
     }
 }
@@ -303,20 +300,18 @@ private fun AppsSettings(
 
 @Composable
 private fun WidgetSettings(
-    layout: Layout,
-    onAddPage: () -> Unit,
-    onRenamePage: (String, String) -> Unit,
-    onRemovePage: (String) -> Unit,
-    onAddWidget: (String) -> Unit,
+    layout: HomeLayout,
+    onAddWidget: () -> Unit,
+    onWidgetMenu: (Int) -> Unit,
 ) {
-    var menuPage by remember { mutableStateOf<WidgetPage?>(null) }
-    var renamePage by remember { mutableStateOf<WidgetPage?>(null) }
+    val context = LocalContext.current
+    val appWidgetManager = remember(context) { AppWidgetManager.getInstance(context) }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = ListEdgePadding) {
-        item { PSectionHeader("widget pages") }
+        item { PSectionHeader("widgets on home") }
         item {
             PText(
-                text = "pages sit to the right of the home screen — swipe across to reach them. long-press a widget on its page to resize or remove it.",
+                text = "widgets sit above the app list, in this order. long-press one on the home screen to resize, reorder or remove it.",
                 modifier = Modifier.padding(horizontal = RowInset, vertical = 4.dp),
                 style = LocalPlainTypography.current.label,
                 color = LocalPlainColors.current.dim,
@@ -324,41 +319,21 @@ private fun WidgetSettings(
             )
         }
 
-        if (layout.pages.isEmpty()) {
-            item { PEmptyState("no widget pages yet") }
+        if (layout.widgets.isEmpty()) {
+            item { PEmptyState("no widgets yet") }
         }
 
-        itemsIndexed(layout.pages, key = { _, page -> "page-${page.id}" }) { index, page ->
+        itemsIndexed(layout.widgets, key = { _, spec -> "widget-${spec.appWidgetId}" }) { index, spec ->
+            val info = appWidgetManager.getAppWidgetInfo(spec.appWidgetId)
+            val name = info?.loadLabel(context.packageManager)?.takeIf { it.isNotBlank() } ?: "unavailable widget"
             PValueRow(
-                title = page.title.ifBlank { "page ${index + 1}" },
-                value = "${page.widgets.size} widget${if (page.widgets.size == 1) "" else "s"}",
-                onClick = { menuPage = page },
+                title = "${index + 1}. $name",
+                value = "${spec.heightDp} dp tall",
+                onClick = { onWidgetMenu(spec.appWidgetId) },
             )
         }
 
-        item { PActionBar(actions = listOf("add page" to onAddPage)) }
-    }
-
-    menuPage?.let { page ->
-        PMenuDialog(
-            title = page.title.ifBlank { "page" },
-            onDismiss = { menuPage = null },
-            actions = listOf(
-                "add widget" to { menuPage = null; onAddWidget(page.id) },
-                "rename page" to { menuPage = null; renamePage = page },
-                "remove page" to { menuPage = null; onRemovePage(page.id) },
-            ),
-        )
-    }
-
-    renamePage?.let { page ->
-        PTextPromptDialog(
-            title = "page name",
-            initialValue = page.title,
-            placeholder = "optional",
-            onConfirm = { title -> onRenamePage(page.id, title); renamePage = null },
-            onDismiss = { renamePage = null },
-        )
+        item { PActionBar(actions = listOf("add widget" to onAddWidget)) }
     }
 }
 

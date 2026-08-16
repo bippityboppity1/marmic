@@ -5,29 +5,34 @@ A minimalist Android launcher: everything is text, in black and white or amber,
 Google Tasks.
 
 That last part is the whole reason this exists. Text-only launchers usually drop
-widget support along with the icons, which means giving up a full-screen calendar.
-Plain keeps the typography and puts the widgets on their own swipeable pages.
+widget support along with the icons, which means giving up a month calendar.
+Plain keeps the typography and puts the widgets on the home screen itself.
 
 ## What it does
 
-**Home** — a clock, a date, and a short list of favourites as plain text.
-Nothing else.
+**Home** — one scrolling screen: the clock, then your widgets in order, then
+your apps. A month calendar with a task list under it and a handful of apps
+below that is the layout it was built around. No widget pages, nothing to swipe
+sideways to.
 
-- swipe **up** → app drawer
-- swipe **left / right** → widget pages
+- swipe **up** (or past the bottom of the list) → app drawer
 - **long-press** → settings
 - **double-tap** → lock the screen
-- swipe **down** → notification shade
+- swipe **down** at the top → notification shade
 
-**App drawer** — an alphabetical text list with search at the bottom, where your
-thumb is. Search matches a prefix, the start of any word, or initials, so `gc`
-finds Google Calendar. Optionally launches as soon as one result remains.
+Because home scrolls, the swipe gestures fire when a drag runs past either end
+of it — so they work the same whether or not your widgets make the page taller
+than the screen.
 
-**Widget pages** — as many as you like, each a vertical stack of widgets. Any
-widget can be set to **fill the page**, which is what makes a month calendar
-usable. Long-press a widget to resize or remove it. The widget picker is itself
-a text list — app name, widget name, requested size — rather than a wall of
-preview images.
+**App drawer** — A→Z from the top, with an **alphabet rail** down the right
+edge: tap a letter or slide your finger along it to jump, one haptic tick per
+letter. The **search bar sits at the bottom**, in thumb reach. Search matches a
+prefix, the start of any word, or initials, so `gc` finds Google Calendar.
+Optionally launches as soon as one result remains.
+
+**Widgets** — added from a text-only picker (app name, widget name, requested
+size) rather than a wall of preview images. Long-press a widget on the home
+screen to change its height, move it up or down the stack, or remove it.
 
 **Palettes**
 
@@ -82,7 +87,7 @@ Any step can be cancelled, and the allocated id is released if it is.
 `PlainWidgetHostView` reports its real size to the provider
 (`updateAppWidgetSize`). Without that, widgets lay out at their declared
 minimum — which is why a month calendar can otherwise come up showing a single
-agenda row.
+agenda row. Give it 360 dp of height and it draws a month.
 
 One thing worth knowing: widgets draw themselves. They follow the system light
 or dark theme, not Plain's palette, so a widget on an amber page will still look
