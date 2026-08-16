@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Plain</string>
+    <string name="accessibility_label">Plain gestures</string>
+    <string name="accessibility_description">Lets Plain lock the screen and pull down the notification shade from a gesture. Plain does not read screen content.</string>
+</resources>
