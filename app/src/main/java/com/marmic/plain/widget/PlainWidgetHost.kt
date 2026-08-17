@@ -32,9 +32,17 @@ class PlainAppWidgetHost(context: Context) : AppWidgetHost(context, PLAIN_HOST_I
  * A host view that can detect a long-press without stealing normal taps and
  * scrolls from the widget's own RemoteViews.
  *
- * We watch the intercept pass (which always sees the gesture first) and arm a
- * timer, but never return true — so the widget's own buttons and lists keep
- * working. Only the timer firing counts as a long-press.
+ * The timer is armed and cancelled in [dispatchTouchEvent] rather than
+ * [onInterceptTouchEvent], because a ViewGroup is only asked to intercept the
+ * rest of a gesture once one of its children has claimed the DOWN. A widget
+ * whose layout is entirely non-clickable claims nothing, and intercept would
+ * then never see the UP — leaving a timer running that fires a long-press the
+ * user never made.
+ *
+ * Nothing is consumed on the way through, so the widget's own buttons and lists
+ * keep working. Once the timer has actually fired we do start intercepting, so
+ * that lifting a finger after a long-press does not also register as a tap on
+ * whatever was underneath it.
  */
 class PlainWidgetHostView(context: Context) : AppWidgetHostView(context) {
 
@@ -51,7 +59,7 @@ class PlainWidgetHostView(context: Context) : AppWidgetHostView(context) {
         onLongPress?.invoke()
     }
 
-    override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         when (ev.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 downX = ev.x
@@ -65,8 +73,10 @@ class PlainWidgetHostView(context: Context) : AppWidgetHostView(context) {
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> cancelLongPress()
         }
-        return false
+        return super.dispatchTouchEvent(ev)
     }
+
+    override fun onInterceptTouchEvent(ev: MotionEvent): Boolean = triggered
 
     override fun cancelLongPress() {
         super.cancelLongPress()

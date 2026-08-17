@@ -156,11 +156,15 @@ class LayoutRepository(private val context: Context) {
     /** Reads the layout once, outside of composition. */
     suspend fun current(): HomeLayout = layout.first()
 
-    suspend fun addWidget(appWidgetId: Int) = update { layout ->
+    suspend fun addWidget(
+        appWidgetId: Int,
+        heightDp: Int = WidgetSpec.DEFAULT_HEIGHT_DP,
+    ) = update { layout ->
         if (layout.widgets.any { it.appWidgetId == appWidgetId }) {
             layout
         } else {
-            layout.copy(widgets = layout.widgets + WidgetSpec(appWidgetId = appWidgetId))
+            val clamped = heightDp.coerceIn(WidgetSpec.MIN_HEIGHT_DP, WidgetSpec.MAX_HEIGHT_DP)
+            layout.copy(widgets = layout.widgets + WidgetSpec(appWidgetId, clamped))
         }
     }
 

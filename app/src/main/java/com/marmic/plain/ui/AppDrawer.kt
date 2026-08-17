@@ -27,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -56,6 +57,7 @@ private const val OTHER_BUCKET = '#'
  * The list runs A→Z from the top with an alphabet rail down the right edge for
  * jumping, and the search bar sits at the bottom where a thumb can reach it.
  */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun AppDrawer(
     apps: List<AppEntry>,

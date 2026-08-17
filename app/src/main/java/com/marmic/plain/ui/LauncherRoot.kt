@@ -247,6 +247,12 @@ fun LauncherRoot(
                     menuWidgetId = null
                     overlay = Overlay.WIDGET_PICKER
                 })
+                // A tall widget can cover everything that is long-pressable on
+                // the home screen, so settings needs a way out from in here.
+                add("launcher settings" to {
+                    menuWidgetId = null
+                    overlay = Overlay.SETTINGS
+                })
                 add("remove widget" to {
                     onRemoveWidget(widgetId)
                     menuWidgetId = null

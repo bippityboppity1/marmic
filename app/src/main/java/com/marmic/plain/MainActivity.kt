@@ -2,6 +2,7 @@ package com.marmic.plain
 
 import android.app.role.RoleManager
 import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProviderInfo
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -21,12 +22,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.marmic.plain.data.Settings
 import com.marmic.plain.model.HomeLayout
+import com.marmic.plain.model.WidgetSpec
 import com.marmic.plain.ui.LauncherRoot
 import com.marmic.plain.ui.theme.PlainTheme
 import com.marmic.plain.widget.PlainAppWidgetHost
 import com.marmic.plain.widget.WidgetInstaller
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 private const val TAG = "MainActivity"
 
@@ -153,7 +156,27 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun addWidgetToHome(appWidgetId: Int) {
-        lifecycleScope.launch { plainApp.layoutRepository.addWidget(appWidgetId) }
+        val height = suggestedHeightDp(appWidgetManager.getAppWidgetInfo(appWidgetId))
+        lifecycleScope.launch { plainApp.layoutRepository.addWidget(appWidgetId, height) }
+    }
+
+    /**
+     * Picks the height a freshly added widget starts at.
+     *
+     * A provider's minHeight is the smallest size it will tolerate, not the size
+     * it looks right at — a month calendar declares a minimum that draws as a
+     * one-line agenda. So anything that says it can be stretched vertically gets
+     * a generous floor, and only fixed-size widgets are taken at their word.
+     */
+    private fun suggestedHeightDp(info: AppWidgetProviderInfo?): Int {
+        if (info == null) return WidgetSpec.DEFAULT_HEIGHT_DP
+
+        val density = resources.displayMetrics.density.takeIf { it > 0f } ?: 1f
+        val minDp = (info.minHeight / density).roundToInt()
+        val stretches = (info.resizeMode and AppWidgetProviderInfo.RESIZE_VERTICAL) != 0
+
+        val height = if (stretches) maxOf(minDp, WidgetSpec.DEFAULT_HEIGHT_DP) else minDp
+        return height.coerceIn(WidgetSpec.MIN_HEIGHT_DP, WidgetSpec.MAX_HEIGHT_DP)
     }
 
     private fun setWidgetHeight(appWidgetId: Int, heightDp: Int) {
