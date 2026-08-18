@@ -81,6 +81,10 @@ fun LauncherRoot(
         WidgetTint.PALETTE -> colors.background to colors.foreground
     }
 
+    // The widget's TextViews are inflated in our process, so the launcher's
+    // typeface can simply be imposed on them.
+    val widgetTypeface = if (settings.widgetMatchFont) androidTypefaceFor(settings.typeface) else null
+
     val labelFor: (AppEntry) -> String = { entry -> settings.renames[entry.key] ?: entry.label }
     val visibleApps = remember(apps, settings.hidden) { apps.filterNot { it.key in settings.hidden } }
     val favorites = remember(apps, settings.favorites) {
@@ -119,6 +123,7 @@ fun LauncherRoot(
             labelFor = labelFor,
             badgeFor = badgeFor,
             duotone = duotone,
+            widgetTypeface = widgetTypeface,
             onLaunch = onLaunchApp,
             onAppLongPress = { menuApp = it },
             onOpenDrawer = { overlay = Overlay.DRAWER },

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Marks a TextView inside a hosted widget as already restyled, so the
+      layout listener that catches lazily-inflated list rows can tell what it
+      has already done and stay cheap.
+    -->
+    <item name="plain_typeface_applied" type="id" />
+</resources>

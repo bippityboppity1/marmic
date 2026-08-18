@@ -173,6 +173,14 @@ private fun AppearanceSettings(
             )
         }
         item {
+            PToggleRow(
+                title = "widget font",
+                subtitle = "give a widget's text the same typeface as everything else",
+                checked = settings.widgetMatchFont,
+                onCheckedChange = { value -> onUpdate { it.copy(widgetMatchFont = value) } },
+            )
+        }
+        item {
             PText(
                 text = "widgets are drawn by their own app, so they cannot be recoloured directly — matching the palette maps their brightness onto it instead",
                 modifier = Modifier.padding(horizontal = RowInset, vertical = 4.dp),

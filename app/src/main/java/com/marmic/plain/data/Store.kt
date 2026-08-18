@@ -41,6 +41,7 @@ private object Keys {
     val showWallpaper = booleanPreferencesKey("show_wallpaper")
     val wallpaperDim = floatPreferencesKey("wallpaper_dim")
     val widgetTint = stringPreferencesKey("widget_tint")
+    val widgetMatchFont = booleanPreferencesKey("widget_match_font")
 
     val favorites = stringPreferencesKey("favorites")
     val hidden = stringPreferencesKey("hidden")
@@ -74,6 +75,7 @@ private fun Preferences.toSettings(): Settings {
         showWallpaper = this[Keys.showWallpaper] ?: d.showWallpaper,
         wallpaperDim = this[Keys.wallpaperDim] ?: d.wallpaperDim,
         widgetTint = this[Keys.widgetTint]?.let { name -> WidgetTint.entries.firstOrNull { it.name == name } } ?: d.widgetTint,
+        widgetMatchFont = this[Keys.widgetMatchFont] ?: d.widgetMatchFont,
         favorites = decodeOr(this[Keys.favorites], d.favorites),
         hidden = decodeOr(this[Keys.hidden], d.hidden),
         renames = decodeOr(this[Keys.renames], d.renames),
@@ -97,6 +99,7 @@ private fun MutablePreferences.write(s: Settings) {
     this[Keys.showWallpaper] = s.showWallpaper
     this[Keys.wallpaperDim] = s.wallpaperDim
     this[Keys.widgetTint] = s.widgetTint.name
+    this[Keys.widgetMatchFont] = s.widgetMatchFont
     this[Keys.favorites] = json.encodeToString(s.favorites)
     this[Keys.hidden] = json.encodeToString(s.hidden)
     this[Keys.renames] = json.encodeToString(s.renames)

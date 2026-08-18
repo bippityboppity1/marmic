@@ -5,10 +5,17 @@ import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetProviderInfo
 import android.content.Context
 import android.os.Build
+import android.graphics.Typeface
 import android.os.Bundle
 import android.util.SizeF
 import android.view.MotionEvent
+import android.view.View
 import android.view.ViewConfiguration
+import android.view.ViewGroup
+import android.view.ViewTreeObserver
+import android.widget.RemoteViews
+import android.widget.TextView
+import com.marmic.plain.R
 import kotlin.math.abs
 
 /** Arbitrary but stable; changing it orphans every widget the user has added. */
@@ -55,6 +62,26 @@ class PlainWidgetHostView(context: Context) : AppWidgetHostView(context) {
      */
     var appliedDuotone: Pair<Int, Int>? = null
 
+    /**
+     * Typeface to impose on every piece of text the widget draws, or null to
+     * leave the widget's own choice alone.
+     *
+     * This works because RemoteViews are only *described* by the other app —
+     * the TextViews themselves are inflated in our process and are ordinary
+     * views we can reach.
+     */
+    var typeface: Typeface? = null
+        set(value) {
+            if (field === value) return
+            field = value
+            applyTypeface(this)
+        }
+
+    // Collection widgets bind their rows lazily through a RemoteViewsAdapter,
+    // so new text can appear long after the widget was first laid out. Catching
+    // each layout pass is the only way to reach those rows.
+    private val layoutListener = ViewTreeObserver.OnGlobalLayoutListener { applyTypeface(this) }
+
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
     private val longPressTimeout = ViewConfiguration.getLongPressTimeout().toLong()
     private var downX = 0f
@@ -100,9 +127,45 @@ class PlainWidgetHostView(context: Context) : AppWidgetHostView(context) {
         removeCallbacks(longPressRunnable)
     }
 
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        viewTreeObserver.addOnGlobalLayoutListener(layoutListener)
+    }
+
     override fun onDetachedFromWindow() {
         removeCallbacks(longPressRunnable)
+        viewTreeObserver.removeOnGlobalLayoutListener(layoutListener)
         super.onDetachedFromWindow()
+    }
+
+    override fun updateAppWidget(remoteViews: RemoteViews?) {
+        super.updateAppWidget(remoteViews)
+        // The provider just replaced the view tree; restyle the new one.
+        applyTypeface(this)
+    }
+
+    /**
+     * Walks the widget's views and imposes [typeface], keeping whatever bold or
+     * italic each piece of text already had.
+     *
+     * Every restyled view is tagged, both to keep repeat passes cheap and to
+     * stop the layout this triggers from looping back in forever.
+     */
+    private fun applyTypeface(view: View) {
+        val wanted = typeface ?: return
+
+        if (view is TextView) {
+            if (view.getTag(R.id.plain_typeface_applied) !== wanted) {
+                val style = view.typeface?.style ?: Typeface.NORMAL
+                view.setTag(R.id.plain_typeface_applied, wanted)
+                view.setTypeface(wanted, style)
+            }
+            return
+        }
+
+        if (view is ViewGroup) {
+            for (index in 0 until view.childCount) applyTypeface(view.getChildAt(index))
+        }
     }
 
     /**

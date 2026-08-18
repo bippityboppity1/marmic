@@ -4,6 +4,7 @@ import android.appwidget.AppWidgetManager
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
+import android.graphics.Typeface as AndroidTypeface
 import android.view.View
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
@@ -16,6 +17,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.marmic.plain.data.Typeface as PlainTypeface
 import com.marmic.plain.ui.theme.LocalPlainColors
 import com.marmic.plain.ui.theme.LocalPlainTypography
 import com.marmic.plain.widget.PlainAppWidgetHost
@@ -38,6 +40,7 @@ fun HostedWidget(
     widthDp: Int,
     heightDp: Int,
     duotone: Pair<Color, Color>?,
+    typeface: AndroidTypeface?,
     onLongPress: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -70,6 +73,7 @@ fun HostedWidget(
             val hostView = view as? PlainWidgetHostView
             hostView?.let {
                 it.onLongPress = onLongPress
+                it.typeface = typeface
                 it.reportSize(widthDp, heightDp)
             }
 
@@ -118,4 +122,11 @@ private fun duotoneMatrix(shadow: Color, highlight: Color): ColorMatrix {
     m[18] = 1f
 
     return ColorMatrix(m)
+}
+
+/** The system font behind each of the launcher's typeface choices. */
+fun androidTypefaceFor(typeface: PlainTypeface): AndroidTypeface = when (typeface) {
+    PlainTypeface.SANS -> AndroidTypeface.SANS_SERIF
+    PlainTypeface.SERIF -> AndroidTypeface.SERIF
+    PlainTypeface.MONO -> AndroidTypeface.MONOSPACE
 }

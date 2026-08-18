@@ -1,5 +1,6 @@
 package com.marmic.plain.ui
 
+import android.graphics.Typeface as AndroidTypeface
 import android.os.BatteryManager
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -61,6 +62,7 @@ fun HomePage(
     labelFor: (AppEntry) -> String,
     badgeFor: (AppEntry) -> Int,
     duotone: Pair<Color, Color>?,
+    widgetTypeface: AndroidTypeface?,
     onLaunch: (AppEntry) -> Unit,
     onAppLongPress: (AppEntry) -> Unit,
     onOpenDrawer: () -> Unit,
@@ -126,6 +128,7 @@ fun HomePage(
                                 slot = slot,
                                 host = host,
                                 duotone = duotone,
+                                typeface = widgetTypeface,
                                 onWidgetLongPress = onWidgetLongPress,
                                 modifier = Modifier
                                     .weight(slot.heightDp.toFloat())
@@ -232,6 +235,7 @@ private fun WidgetSlotView(
     slot: WidgetSlot,
     host: PlainAppWidgetHost,
     duotone: Pair<Color, Color>?,
+    typeface: AndroidTypeface?,
     onWidgetLongPress: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -247,6 +251,7 @@ private fun WidgetSlotView(
                 widthDp = widthDp,
                 heightDp = heightDp,
                 duotone = duotone,
+                typeface = typeface,
                 onLongPress = { onWidgetLongPress(id) },
                 modifier = Modifier.fillMaxSize(),
             )
@@ -269,6 +274,7 @@ private fun WidgetSlotView(
                     widthDp = widthDp,
                     heightDp = heightDp,
                     duotone = duotone,
+                    typeface = typeface,
                     onLongPress = { onWidgetLongPress(id) },
                     modifier = Modifier.fillMaxSize(),
                 )

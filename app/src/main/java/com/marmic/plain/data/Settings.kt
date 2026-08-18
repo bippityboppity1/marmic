@@ -55,6 +55,7 @@ data class Settings(
     val wallpaperDim: Float = 0.45f,
 
     val widgetTint: WidgetTint = WidgetTint.PALETTE,
+    val widgetMatchFont: Boolean = true,
 
     /** [AppEntry.key] values, in display order. */
     val favorites: List<String> = emptyList(),
