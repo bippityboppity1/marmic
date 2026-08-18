@@ -48,6 +48,13 @@ class PlainWidgetHostView(context: Context) : AppWidgetHostView(context) {
 
     var onLongPress: (() -> Unit)? = null
 
+    /**
+     * The argb pair currently applied as a duotone filter, so the hardware
+     * layer is only rebuilt when the palette actually changes rather than on
+     * every recomposition the clock happens to cause.
+     */
+    var appliedDuotone: Pair<Int, Int>? = null
+
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
     private val longPressTimeout = ViewConfiguration.getLongPressTimeout().toLong()
     private var downX = 0f

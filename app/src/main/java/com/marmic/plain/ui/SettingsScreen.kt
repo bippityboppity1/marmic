@@ -21,8 +21,10 @@ import com.marmic.plain.data.ClockSize
 import com.marmic.plain.data.Palette
 import com.marmic.plain.data.Settings
 import com.marmic.plain.data.Typeface
+import com.marmic.plain.data.WidgetTint
 import com.marmic.plain.model.AppEntry
 import com.marmic.plain.model.HomeLayout
+import com.marmic.plain.model.WidgetSlot
 import com.marmic.plain.ui.theme.LocalPlainColors
 import com.marmic.plain.ui.theme.LocalPlainTypography
 
@@ -38,6 +40,7 @@ fun SettingsScreen(
     apps: List<AppEntry>,
     labelFor: (AppEntry) -> String,
     accessibilityEnabled: Boolean,
+    notificationAccessEnabled: Boolean,
     onUpdateSettings: ((Settings) -> Settings) -> Unit,
     onToggleFavorite: (String) -> Unit,
     onMoveFavorite: (String, Int) -> Unit,
@@ -46,6 +49,7 @@ fun SettingsScreen(
     onWidgetMenu: (Int) -> Unit,
     onSetDefaultLauncher: () -> Unit,
     onOpenAccessibilitySettings: () -> Unit,
+    onOpenNotificationSettings: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -79,8 +83,10 @@ fun SettingsScreen(
                     settings = settings,
                     apps = apps,
                     labelFor = labelFor,
+                    notificationAccessEnabled = notificationAccessEnabled,
                     onUpdateSettings = onUpdateSettings,
                     onSetHidden = onSetHidden,
+                    onOpenNotificationSettings = onOpenNotificationSettings,
                 )
 
                 SettingsRoute.WIDGETS -> WidgetSettings(
@@ -154,6 +160,25 @@ private fun AppearanceSettings(
                 title = "lowercase everything",
                 checked = settings.lowercase,
                 onCheckedChange = { value -> onUpdate { it.copy(lowercase = value) } },
+            )
+        }
+        item { PDivider(Modifier.padding(vertical = 8.dp)) }
+        item {
+            POptionRow(
+                title = "widget colours",
+                options = WidgetTint.entries.toList(),
+                selected = settings.widgetTint,
+                label = { it.label },
+                onSelect = { tint -> onUpdate { it.copy(widgetTint = tint) } },
+            )
+        }
+        item {
+            PText(
+                text = "widgets are drawn by their own app, so they cannot be recoloured directly — matching the palette maps their brightness onto it instead",
+                modifier = Modifier.padding(horizontal = RowInset, vertical = 4.dp),
+                style = LocalPlainTypography.current.label,
+                color = LocalPlainColors.current.dim,
+                maxLines = 4,
             )
         }
         item { PDivider(Modifier.padding(vertical = 8.dp)) }
@@ -257,10 +282,33 @@ private fun AppsSettings(
     settings: Settings,
     apps: List<AppEntry>,
     labelFor: (AppEntry) -> String,
+    notificationAccessEnabled: Boolean,
     onUpdateSettings: ((Settings) -> Settings) -> Unit,
     onSetHidden: (String, Boolean) -> Unit,
+    onOpenNotificationSettings: () -> Unit,
 ) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = ListEdgePadding) {
+        item { PSectionHeader("notifications") }
+        item {
+            PToggleRow(
+                title = "notification badges",
+                subtitle = "a count beside an app that has something waiting",
+                checked = settings.notificationBadges,
+                onCheckedChange = { value -> onUpdateSettings { it.copy(notificationBadges = value) } },
+            )
+        }
+        item {
+            PValueRow(
+                title = "notification access",
+                value = if (notificationAccessEnabled) {
+                    "granted"
+                } else {
+                    "needed for badges — tap to grant"
+                },
+                onClick = onOpenNotificationSettings,
+            )
+        }
+
         item { PSectionHeader("search") }
         item {
             PToggleRow(
@@ -311,7 +359,7 @@ private fun WidgetSettings(
         item { PSectionHeader("widgets on home") }
         item {
             PText(
-                text = "widgets sit above the app list, in this order. long-press one on the home screen to resize, reorder or remove it.",
+                text = "widgets sit between the clock and the app list and share whatever room is left, so the home screen never scrolls. long-press one to resize, reorder, or stack it onto the one above — a stack costs the room of a single widget and is paged through sideways.",
                 modifier = Modifier.padding(horizontal = RowInset, vertical = 4.dp),
                 style = LocalPlainTypography.current.label,
                 color = LocalPlainColors.current.dim,
@@ -319,17 +367,28 @@ private fun WidgetSettings(
             )
         }
 
-        if (layout.widgets.isEmpty()) {
+        if (layout.slots.isEmpty()) {
             item { PEmptyState("no widgets yet") }
         }
 
-        itemsIndexed(layout.widgets, key = { _, spec -> "widget-${spec.appWidgetId}" }) { index, spec ->
-            val info = appWidgetManager.getAppWidgetInfo(spec.appWidgetId)
+        val rows = buildList<Triple<Int, Int, WidgetSlot>> {
+            layout.slots.forEachIndexed { slotIndex, slot ->
+                slot.appWidgetIds.forEach { id -> add(Triple(slotIndex, id, slot)) }
+            }
+        }
+
+        itemsIndexed(rows, key = { _, row -> "widget-${row.second}" }) { _, row ->
+            val (slotIndex, appWidgetId, slot) = row
+            val info = appWidgetManager.getAppWidgetInfo(appWidgetId)
             val name = info?.loadLabel(context.packageManager)?.takeIf { it.isNotBlank() } ?: "unavailable widget"
             PValueRow(
-                title = "${index + 1}. $name",
-                value = "${spec.heightDp} dp tall",
-                onClick = { onWidgetMenu(spec.appWidgetId) },
+                title = "${slotIndex + 1}. $name",
+                value = if (slot.isStack) {
+                    "stacked with ${slot.appWidgetIds.size - 1} other · size ${slot.heightDp}"
+                } else {
+                    "size ${slot.heightDp}"
+                },
+                onClick = { onWidgetMenu(appWidgetId) },
             )
         }
 

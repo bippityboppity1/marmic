@@ -26,7 +26,7 @@ data class AppEntry(
     }
 }
 
-/** One hosted app widget, stacked on the home screen. */
+/** Pre-stack layouts stored a flat list of these. Kept only so they still load. */
 @Serializable
 data class WidgetSpec(
     val appWidgetId: Int,
@@ -43,17 +43,50 @@ data class WidgetSpec(
 }
 
 /**
- * The home screen: widgets first, in order, then the favourite apps.
+ * One band of the home screen, holding one widget or a stack of them.
  *
- * There are no widget pages — everything lives on one scrolling home screen,
- * so a month calendar and a task list sit above the app list rather than a
- * swipe away.
+ * A stack occupies the height of a single widget and is paged through
+ * sideways — which is the whole point: a calendar and a task list can share
+ * one slot instead of eating the screen one after the other.
  */
 @Serializable
+data class WidgetSlot(
+    val id: String,
+    val appWidgetIds: List<Int> = emptyList(),
+    val heightDp: Int = WidgetSpec.DEFAULT_HEIGHT_DP,
+) {
+    val isStack: Boolean get() = appWidgetIds.size > 1
+}
+
+/** The home screen: widget slots in order, then the favourite apps. */
+@Serializable
 data class HomeLayout(
+    val slots: List<WidgetSlot> = emptyList(),
+    /**
+     * Remnant of the pre-stack schema. Folded into [slots] by [normalized] on
+     * the way out of storage, so an existing home screen survives the upgrade.
+     */
     val widgets: List<WidgetSpec> = emptyList(),
 ) {
-    val widgetIds: List<Int> get() = widgets.map { it.appWidgetId }
+    val widgetIds: List<Int> get() = slots.flatMap { it.appWidgetIds }
+
+    fun slotOf(appWidgetId: Int): WidgetSlot? = slots.firstOrNull { appWidgetId in it.appWidgetIds }
+
+    fun normalized(): HomeLayout =
+        if (widgets.isEmpty()) {
+            this
+        } else {
+            copy(
+                slots = slots + widgets.map { spec ->
+                    WidgetSlot(
+                        id = "migrated-${spec.appWidgetId}",
+                        appWidgetIds = listOf(spec.appWidgetId),
+                        heightDp = spec.heightDp,
+                    )
+                },
+                widgets = emptyList(),
+            )
+        }
 
     companion object {
         val EMPTY = HomeLayout()

@@ -22,10 +22,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.collectAsState
 import com.marmic.plain.data.Settings
+import com.marmic.plain.data.WidgetTint
 import com.marmic.plain.model.AppEntry
 import com.marmic.plain.model.HomeLayout
 import com.marmic.plain.model.WidgetSpec
+import com.marmic.plain.system.NotificationCounts
 import com.marmic.plain.system.PlainAccessibilityService
 import com.marmic.plain.ui.theme.LocalPlainColors
 import com.marmic.plain.widget.PlainAppWidgetHost
@@ -51,9 +54,12 @@ fun LauncherRoot(
     onPickWidget: (AppWidgetProviderInfo) -> Unit,
     onSetWidgetHeight: (Int, Int) -> Unit,
     onMoveWidget: (Int, Int) -> Unit,
+    onStackWidget: (Int) -> Unit,
+    onUnstackWidget: (Int) -> Unit,
     onRemoveWidget: (Int) -> Unit,
     onSetDefaultLauncher: () -> Unit,
     onOpenAccessibilitySettings: () -> Unit,
+    onOpenNotificationSettings: () -> Unit,
 ) {
     val context = LocalContext.current
     val colors = LocalPlainColors.current
@@ -62,6 +68,18 @@ fun LauncherRoot(
     var menuApp by remember { mutableStateOf<AppEntry?>(null) }
     var renameApp by remember { mutableStateOf<AppEntry?>(null) }
     var menuWidgetId by remember { mutableStateOf<Int?>(null) }
+
+    val notificationCounts by NotificationCounts.counts.collectAsState()
+    val badgeFor: (AppEntry) -> Int = { entry ->
+        if (settings.notificationBadges) notificationCounts[entry.packageName] ?: 0 else 0
+    }
+
+    // Widgets render themselves; the only thing we control is what their pixels
+    // get composited through on the way to the screen.
+    val duotone = when (settings.widgetTint) {
+        WidgetTint.OFF -> null
+        WidgetTint.PALETTE -> colors.background to colors.foreground
+    }
 
     val labelFor: (AppEntry) -> String = { entry -> settings.renames[entry.key] ?: entry.label }
     val visibleApps = remember(apps, settings.hidden) { apps.filterNot { it.key in settings.hidden } }
@@ -99,6 +117,8 @@ fun LauncherRoot(
             host = host,
             favorites = favorites,
             labelFor = labelFor,
+            badgeFor = badgeFor,
+            duotone = duotone,
             onLaunch = onLaunchApp,
             onAppLongPress = { menuApp = it },
             onOpenDrawer = { overlay = Overlay.DRAWER },
@@ -114,7 +134,7 @@ fun LauncherRoot(
                 }
             },
             onAddWidget = { overlay = Overlay.WIDGET_PICKER },
-            onWidgetLongPress = { spec -> menuWidgetId = spec.appWidgetId },
+            onWidgetLongPress = { id -> menuWidgetId = id },
             modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars),
         )
 
@@ -132,6 +152,7 @@ fun LauncherRoot(
                 AppDrawer(
                     apps = visibleApps,
                     labelFor = labelFor,
+                    badgeFor = badgeFor,
                     onLaunch = { entry ->
                         overlay = Overlay.NONE
                         onLaunchApp(entry)
@@ -155,6 +176,7 @@ fun LauncherRoot(
                     apps = apps,
                     labelFor = labelFor,
                     accessibilityEnabled = PlainAccessibilityService.isEnabled(context),
+                    notificationAccessEnabled = NotificationCounts.isEnabled(context),
                     onUpdateSettings = onUpdateSettings,
                     onToggleFavorite = onToggleFavorite,
                     onMoveFavorite = onMoveFavorite,
@@ -163,6 +185,7 @@ fun LauncherRoot(
                     onWidgetMenu = { appWidgetId -> menuWidgetId = appWidgetId },
                     onSetDefaultLauncher = onSetDefaultLauncher,
                     onOpenAccessibilitySettings = onOpenAccessibilitySettings,
+                    onOpenNotificationSettings = onOpenNotificationSettings,
                     onClose = { overlay = Overlay.NONE },
                 )
             }
@@ -226,13 +249,20 @@ fun LauncherRoot(
     }
 
     menuWidgetId?.let { widgetId ->
-        val index = layout.widgets.indexOfFirst { it.appWidgetId == widgetId }
+        val slot = layout.slotOf(widgetId)
+        val index = layout.slots.indexOfFirst { it.id == slot?.id }
         PMenuDialog(
-            title = "widget",
+            title = if (slot?.isStack == true) "widget · in a stack of ${slot.appWidgetIds.size}" else "widget",
             onDismiss = { menuWidgetId = null },
             actions = buildList<Pair<String, () -> Unit>> {
+                if (index > 0) {
+                    add("stack onto the one above" to { onStackWidget(widgetId); menuWidgetId = null })
+                }
+                if (slot?.isStack == true) {
+                    add("take out of the stack" to { onUnstackWidget(widgetId); menuWidgetId = null })
+                }
                 WidgetSpec.HEIGHT_PRESETS.forEach { height ->
-                    add("height $height dp" to {
+                    add("size $height" to {
                         onSetWidgetHeight(widgetId, height)
                         menuWidgetId = null
                     })
@@ -240,7 +270,7 @@ fun LauncherRoot(
                 if (index > 0) {
                     add("move up" to { onMoveWidget(widgetId, -1); menuWidgetId = null })
                 }
-                if (index >= 0 && index < layout.widgets.lastIndex) {
+                if (index >= 0 && index < layout.slots.lastIndex) {
                     add("move down" to { onMoveWidget(widgetId, 1); menuWidgetId = null })
                 }
                 add("add another widget" to {

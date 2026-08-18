@@ -109,9 +109,12 @@ class MainActivity : ComponentActivity() {
                     onPickWidget = { provider -> widgetInstaller.install(provider) },
                     onSetWidgetHeight = ::setWidgetHeight,
                     onMoveWidget = ::moveWidget,
+                    onStackWidget = ::stackWidget,
+                    onUnstackWidget = ::unstackWidget,
                     onRemoveWidget = ::removeWidget,
                     onSetDefaultLauncher = ::requestHomeRole,
                     onOpenAccessibilitySettings = ::openAccessibilitySettings,
+                    onOpenNotificationSettings = ::openNotificationSettings,
                 )
             }
         }
@@ -180,11 +183,19 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun setWidgetHeight(appWidgetId: Int, heightDp: Int) {
-        lifecycleScope.launch { plainApp.layoutRepository.setWidgetHeight(appWidgetId, heightDp) }
+        lifecycleScope.launch { plainApp.layoutRepository.setSlotHeight(appWidgetId, heightDp) }
     }
 
     private fun moveWidget(appWidgetId: Int, delta: Int) {
-        lifecycleScope.launch { plainApp.layoutRepository.moveWidget(appWidgetId, delta) }
+        lifecycleScope.launch { plainApp.layoutRepository.moveSlot(appWidgetId, delta) }
+    }
+
+    private fun stackWidget(appWidgetId: Int) {
+        lifecycleScope.launch { plainApp.layoutRepository.stackWithPrevious(appWidgetId) }
+    }
+
+    private fun unstackWidget(appWidgetId: Int) {
+        lifecycleScope.launch { plainApp.layoutRepository.unstack(appWidgetId) }
     }
 
     private fun removeWidget(appWidgetId: Int) {
@@ -232,5 +243,11 @@ class MainActivity : ComponentActivity() {
         runCatching {
             startActivity(Intent(AndroidSettings.ACTION_ACCESSIBILITY_SETTINGS))
         }.onFailure { Log.w(TAG, "No accessibility settings screen on this device", it) }
+    }
+
+    private fun openNotificationSettings() {
+        runCatching {
+            startActivity(Intent(AndroidSettings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+        }.onFailure { Log.w(TAG, "No notification listener settings on this device", it) }
     }
 }

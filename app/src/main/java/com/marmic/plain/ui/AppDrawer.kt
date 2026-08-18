@@ -62,6 +62,7 @@ private const val OTHER_BUCKET = '#'
 fun AppDrawer(
     apps: List<AppEntry>,
     labelFor: (AppEntry) -> String,
+    badgeFor: (AppEntry) -> Int,
     onLaunch: (AppEntry) -> Unit,
     onAppLongPress: (AppEntry) -> Unit,
     onClose: () -> Unit,
@@ -143,15 +144,12 @@ fun AppDrawer(
                     contentPadding = ListEdgePadding,
                 ) {
                     items(results, key = { it.key }) { entry ->
-                        PText(
-                            text = labelFor(entry),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .plainClickable(
-                                    onClick = { launch(entry) },
-                                    onLongClick = { onAppLongPress(entry) },
-                                )
-                                .padding(horizontal = RowInset, vertical = 10.dp),
+                        AppRow(
+                            label = labelFor(entry),
+                            badgeCount = badgeFor(entry),
+                            onClick = { launch(entry) },
+                            onLongClick = { onAppLongPress(entry) },
+                            modifier = Modifier.padding(horizontal = RowInset, vertical = 10.dp),
                             style = type.item,
                         )
                     }

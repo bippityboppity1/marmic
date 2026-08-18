@@ -40,13 +40,14 @@ fun colorsFor(palette: Palette): PlainColors = when (palette) {
         isDark = true,
     )
 
-    // Amber on black. Roughly the phosphor of an old terminal: no blue channel
-    // at all, which is the point of it for night use.
+    // Soft gold on black. Pulled back from the old #FFB000, which read as
+    // orange on an OLED: less saturation and a shift towards yellow, which is
+    // easier on the eye for the same near-zero blue output.
     Palette.AMBER -> PlainColors(
         background = Color(0xFF000000),
-        foreground = Color(0xFFFFB000),
-        dim = Color(0xFF8A6200),
-        divider = Color(0xFF2B1E00),
+        foreground = Color(0xFFF0C674),
+        dim = Color(0xFF8C7645),
+        divider = Color(0xFF2A2210),
         isDark = true,
     )
 
