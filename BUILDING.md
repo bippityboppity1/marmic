@@ -28,6 +28,34 @@ and hit Run.
 The debug build installs as `com.marmic.plain.debug`, so it will not collide
 with a release build later.
 
+## Installing over Wi-Fi (no cable)
+
+Android 11+ can take the install wirelessly from your PC, as long as both are on
+the same network.
+
+**On the phone**, enable Developer options if you have not already: Settings →
+About phone → tap *Build number* seven times. Then Settings → System →
+Developer options → **Wireless debugging** → on → *Pair device with pairing
+code*. Leave that screen open; it shows an IP, a port and a six-digit code.
+
+**In Android Studio:** Device Manager → the `+` menu → *Pair using Wi-Fi*, then
+scan the QR code or enter the pairing code. Once paired the phone shows up as a
+normal run target and stays paired across reboots of Studio.
+
+**Or from the terminal**, using the pairing IP/port and code from that screen:
+
+```sh
+adb pair 192.168.1.42:37103      # asks for the six-digit code
+adb connect 192.168.1.42:41234   # the *other* port, shown under "IP address & Port"
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+The two ports are different: the pairing port is single-use and changes each
+time, while the connect port is the persistent one listed above it.
+
+If `adb connect` hangs, the usual cause is the phone and PC being on different
+Wi-Fi bands or a guest network with client isolation enabled.
+
 ## First run
 
 1. Launch it once from the app list, or press Home.
