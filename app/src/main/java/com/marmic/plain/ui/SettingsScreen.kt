@@ -164,6 +164,15 @@ private fun AppearanceSettings(
         }
         item { PDivider(Modifier.padding(vertical = 8.dp)) }
         item {
+            PToggleRow(
+                title = "hide the status bar",
+                subtitle = "the time, date and battery are already on the home screen",
+                checked = settings.hideStatusBar,
+                onCheckedChange = { value -> onUpdate { it.copy(hideStatusBar = value) } },
+            )
+        }
+        item { PDivider(Modifier.padding(vertical = 8.dp)) }
+        item {
             POptionRow(
                 title = "widget colours",
                 options = WidgetTint.entries.toList(),

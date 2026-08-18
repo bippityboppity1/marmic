@@ -18,6 +18,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.marmic.plain.data.Settings
@@ -69,6 +71,21 @@ class MainActivity : ComponentActivity() {
             val layout by plainApp.layoutRepository.layout
                 .collectAsStateWithLifecycle(initialValue = HomeLayout.EMPTY)
             val apps by plainApp.appRepository.apps.collectAsStateWithLifecycle()
+
+            // The launcher already shows the time, date and battery, so the
+            // system's own copy of all three is redundant here. Hiding it only
+            // affects our window; every other app keeps its status bar, and a
+            // swipe from the top edge still brings it back temporarily.
+            LaunchedEffect(settings.hideStatusBar) {
+                val controller = WindowCompat.getInsetsController(window, window.decorView)
+                controller.systemBarsBehavior =
+                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                if (settings.hideStatusBar) {
+                    controller.hide(WindowInsetsCompat.Type.statusBars())
+                } else {
+                    controller.show(WindowInsetsCompat.Type.statusBars())
+                }
+            }
 
             // FLAG_SHOW_WALLPAPER is a window flag, so it has to be applied to
             // the window rather than expressed in the composition.

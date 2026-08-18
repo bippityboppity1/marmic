@@ -38,6 +38,7 @@ private object Keys {
     val showDate = booleanPreferencesKey("show_date")
     val showBattery = booleanPreferencesKey("show_battery")
 
+    val hideStatusBar = booleanPreferencesKey("hide_status_bar")
     val showWallpaper = booleanPreferencesKey("show_wallpaper")
     val wallpaperDim = floatPreferencesKey("wallpaper_dim")
     val widgetTint = stringPreferencesKey("widget_tint")
@@ -72,6 +73,7 @@ private fun Preferences.toSettings(): Settings {
         clock24h = this[Keys.clock24h] ?: d.clock24h,
         showDate = this[Keys.showDate] ?: d.showDate,
         showBattery = this[Keys.showBattery] ?: d.showBattery,
+        hideStatusBar = this[Keys.hideStatusBar] ?: d.hideStatusBar,
         showWallpaper = this[Keys.showWallpaper] ?: d.showWallpaper,
         wallpaperDim = this[Keys.wallpaperDim] ?: d.wallpaperDim,
         widgetTint = this[Keys.widgetTint]?.let { name -> WidgetTint.entries.firstOrNull { it.name == name } } ?: d.widgetTint,
@@ -96,6 +98,7 @@ private fun MutablePreferences.write(s: Settings) {
     this[Keys.clock24h] = s.clock24h
     this[Keys.showDate] = s.showDate
     this[Keys.showBattery] = s.showBattery
+    this[Keys.hideStatusBar] = s.hideStatusBar
     this[Keys.showWallpaper] = s.showWallpaper
     this[Keys.wallpaperDim] = s.wallpaperDim
     this[Keys.widgetTint] = s.widgetTint.name

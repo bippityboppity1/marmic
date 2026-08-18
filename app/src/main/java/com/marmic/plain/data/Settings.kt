@@ -50,6 +50,7 @@ data class Settings(
     val showDate: Boolean = true,
     val showBattery: Boolean = false,
 
+    val hideStatusBar: Boolean = true,
     val showWallpaper: Boolean = false,
     /** 0f = wallpaper untouched, 1f = fully covered by the palette background. */
     val wallpaperDim: Float = 0.45f,

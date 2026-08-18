@@ -82,9 +82,11 @@ fun AppDrawer(
     val searchLabel: (AppEntry) -> String = { entry -> settings.renames[entry.key] ?: entry.label }
     val results = remember(apps, query, settings.renames) { rankApps(apps, query, searchLabel) }
 
+    val searching = query.isNotBlank()
+
     // The rail only makes sense against the full alphabetical list; once the
     // search has narrowed things down there is nothing to jump through.
-    val showRail = query.isBlank() && results.size > 12
+    val showRail = !searching && results.size > 12
     val letters = remember(results, showRail) {
         if (!showRail) emptyList() else results.map { bucketOf(searchLabel(it)) }.distinct()
     }
@@ -141,6 +143,11 @@ fun AppDrawer(
                         .fillMaxSize()
                         .padding(end = if (showRail) RailWidth else 0.dp),
                     state = listState,
+                    // Browsing reads A-Z from the top, where the alphabet rail
+                    // makes sense. Searching flips the list over so matches
+                    // stack up from just above the search bar, under the thumb
+                    // that is already typing.
+                    reverseLayout = searching,
                     contentPadding = ListEdgePadding,
                 ) {
                     items(results, key = { it.key }) { entry ->
