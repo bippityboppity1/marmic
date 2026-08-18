@@ -111,8 +111,12 @@ private fun loadWidgetChoices(context: Context): List<WidgetChoice> {
             minHeightDp = pxToDp(info.minHeight, density.density),
         )
     }.sortedWith(
-        compareBy(String.CASE_INSENSITIVE_ORDER, { it.appLabel })
-            .thenBy(String.CASE_INSENSITIVE_ORDER) { it.widgetLabel },
+        // Naming the receiver type is what lets this infer: the two-argument
+        // compareBy(comparator, selector) has two type parameters and neither
+        // is reachable from here, because the chained thenBy consumes the
+        // result before sortedWith can pin it down.
+        compareBy<WidgetChoice> { it.appLabel.lowercase() }
+            .thenBy { it.widgetLabel.lowercase() },
     )
 }
 
