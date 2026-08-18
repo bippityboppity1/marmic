@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -74,35 +75,27 @@ fun HomePage(
     val colors = LocalPlainColors.current
     val type = LocalPlainTypography.current
 
-    Box(
-        modifier
-            .fillMaxSize()
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onLongPress = { onOpenSettings() },
-                    onDoubleTap = { onDoubleTap() },
-                )
-            }
-            .pointerInput(Unit) {
-                var total = 0f
-                detectVerticalDragGestures(
-                    onDragStart = { total = 0f },
-                    onDragEnd = {
-                        when {
-                            total <= -SWIPE_THRESHOLD_PX -> onOpenDrawer()
-                            total >= SWIPE_THRESHOLD_PX -> onSwipeDown()
-                        }
-                    },
-                    onDragCancel = { total = 0f },
-                ) { _, dragAmount -> total += dragAmount }
-            },
-    ) {
+    // Deliberately NOT on the root: a drag that starts over a widget belongs to
+    // the widget. Claiming it here is what stopped a task list from scrolling.
+    val gestures = Modifier.homeGestures(
+        onOpenDrawer = onOpenDrawer,
+        onOpenSettings = onOpenSettings,
+        onSwipeDown = onSwipeDown,
+        onDoubleTap = onDoubleTap,
+    )
+
+    Box(modifier.fillMaxSize()) {
         Column(
             Modifier
                 .fillMaxSize()
                 .padding(vertical = 24.dp),
         ) {
-            Column(Modifier.padding(horizontal = RowInset)) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .then(gestures)
+                    .padding(horizontal = RowInset),
+            ) {
                 ClockBlock()
             }
 
@@ -143,10 +136,11 @@ fun HomePage(
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
-
             Column(
-                Modifier.padding(horizontal = RowInset),
+                Modifier
+                    .fillMaxWidth()
+                    .then(gestures)
+                    .padding(top = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 favorites.forEach { entry ->
@@ -155,21 +149,21 @@ fun HomePage(
                         badgeCount = badgeFor(entry),
                         onClick = { onLaunch(entry) },
                         onLongClick = { onAppLongPress(entry) },
-                        modifier = Modifier.padding(vertical = 7.dp),
+                        modifier = Modifier.padding(horizontal = RowInset, vertical = 7.dp),
                         style = type.item,
                     )
                 }
-            }
 
-            PText(
-                text = if (favorites.isEmpty()) "swipe up for apps" else "apps",
-                modifier = Modifier
-                    .padding(horizontal = RowInset)
-                    .plainClickable(onClick = onOpenDrawer)
-                    .padding(top = 14.dp, bottom = 2.dp),
-                style = type.label,
-                color = colors.dim,
-            )
+                PText(
+                    text = if (favorites.isEmpty()) "swipe up for apps" else "apps",
+                    modifier = Modifier
+                        .padding(horizontal = RowInset)
+                        .plainClickable(onClick = onOpenDrawer)
+                        .padding(top = 14.dp, bottom = 2.dp),
+                    style = type.label,
+                    color = colors.dim,
+                )
+            }
         }
 
         if (settings.showBattery) {
@@ -180,6 +174,53 @@ fun HomePage(
             )
         }
     }
+}
+
+/**
+ * The home-screen gestures, applied only to the strips that are ours: the clock
+ * at the top and the app list at the bottom.
+ *
+ * Widgets are left alone on purpose. A hosted widget can contain a scrolling
+ * list of its own, and a drag detector stretched across the whole screen wins
+ * that gesture before the list ever sees it — which is exactly how a task list
+ * stops scrolling.
+ *
+ * The callbacks are read through rememberUpdatedState so the detectors, which
+ * are keyed on Unit and therefore never restart, always call the current ones
+ * rather than whichever were captured on first composition.
+ */
+@Composable
+private fun Modifier.homeGestures(
+    onOpenDrawer: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onSwipeDown: () -> Unit,
+    onDoubleTap: () -> Unit,
+): Modifier {
+    val openDrawer by rememberUpdatedState(onOpenDrawer)
+    val openSettings by rememberUpdatedState(onOpenSettings)
+    val swipeDown by rememberUpdatedState(onSwipeDown)
+    val doubleTap by rememberUpdatedState(onDoubleTap)
+
+    return this
+        .pointerInput(Unit) {
+            detectTapGestures(
+                onLongPress = { openSettings() },
+                onDoubleTap = { doubleTap() },
+            )
+        }
+        .pointerInput(Unit) {
+            var total = 0f
+            detectVerticalDragGestures(
+                onDragStart = { total = 0f },
+                onDragEnd = {
+                    when {
+                        total <= -SWIPE_THRESHOLD_PX -> openDrawer()
+                        total >= SWIPE_THRESHOLD_PX -> swipeDown()
+                    }
+                },
+                onDragCancel = { total = 0f },
+            ) { _, dragAmount -> total += dragAmount }
+        }
 }
 
 /**

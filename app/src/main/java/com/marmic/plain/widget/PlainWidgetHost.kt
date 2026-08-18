@@ -85,6 +85,16 @@ class PlainWidgetHostView(context: Context) : AppWidgetHostView(context) {
 
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean = triggered
 
+    /**
+     * A scrolling list inside the widget calls this the moment it starts
+     * scrolling. That is a scroll, not a long press, so drop the timer —
+     * otherwise flicking through a task list pops the widget menu.
+     */
+    override fun requestDisallowInterceptTouchEvent(disallowIntercept: Boolean) {
+        if (disallowIntercept) cancelLongPress()
+        super.requestDisallowInterceptTouchEvent(disallowIntercept)
+    }
+
     override fun cancelLongPress() {
         super.cancelLongPress()
         removeCallbacks(longPressRunnable)
