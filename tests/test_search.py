@@ -268,3 +268,74 @@ def test_best_value_ignores_duration_when_no_source_reported_it():
     b = make_quote(price=105, designator="BA2611", stops=0, duration=None)
 
     assert best_value_flight([a, b]) is b  # the stop is the only signal left
+
+
+# --- provider health ------------------------------------------------------
+
+
+async def test_doctor_separates_a_missing_key_from_an_unreachable_provider(config):
+    """These look identical in a status table and have opposite remedies."""
+    from travelagent.errors import Blocked
+    from travelagent.search import probe_providers
+
+    class NoKey(StubProvider):
+        @property
+        def configured(self):
+            return False
+
+    class Unreachable(StubProvider):
+        async def probe(self, http):
+            raise Blocked("egress blocked reaching https://api.duffel.com")
+
+    class Healthy(StubProvider):
+        async def probe(self, http):
+            return "authenticated (test mode)"
+
+    providers = [
+        NoKey(config, "nokey"),
+        Unreachable(config, "unreachable"),
+        Healthy(config, "healthy"),
+    ]
+    import travelagent.providers.registry as registry
+    original = registry.all_providers
+    registry.all_providers = lambda cfg: providers
+    try:
+        rows = await probe_providers(config)
+    finally:
+        registry.all_providers = original
+
+    states = {r.name: r.state for r in rows}
+    assert states == {
+        "nokey": "unconfigured",
+        "unreachable": "failing",
+        "healthy": "ready",
+    }
+    assert [r.name for r in rows if r.ok] == ["healthy"]
+
+
+def test_doctor_footer_names_both_problems_separately():
+    """A missing key and an unreachable host need different fixes, and both
+    can be true at once — so the footer must never lump them together."""
+    from travelagent.cli import _doctor_footer
+    from travelagent.models import ProviderStatus
+
+    rows = [
+        ProviderStatus("duffel", "failing", "egress blocked"),
+        ProviderStatus("travelpayouts", "unconfigured", "set a token"),
+    ]
+    footer = "\n".join(_doctor_footer(rows))
+
+    assert "Unreachable: duffel" in footer
+    assert "Not set up: travelpayouts" in footer
+    assert "will not fix this" in footer
+
+
+def test_doctor_footer_omits_a_category_that_is_empty():
+    from travelagent.cli import _doctor_footer
+    from travelagent.models import ProviderStatus
+
+    footer = "\n".join(
+        _doctor_footer([ProviderStatus("duffel", "unconfigured", "set a token")])
+    )
+    assert "Not set up: duffel" in footer
+    assert "Unreachable" not in footer

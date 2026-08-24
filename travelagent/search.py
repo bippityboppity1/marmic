@@ -15,6 +15,7 @@ from .models import (
     Freshness,
     HotelQuote,
     ProviderError,
+    ProviderStatus,
     SearchResult,
 )
 from .providers.base import Provider
@@ -237,18 +238,28 @@ def best_value_flight(quotes: list[FlightQuote]) -> FlightQuote | None:
     return min(quotes, key=score)
 
 
-async def probe_providers(config: Config) -> list[tuple[str, bool, str]]:
+async def probe_providers(config: Config) -> list[ProviderStatus]:
     """Health check every provider. Powers `travelagent doctor`."""
     from .providers.registry import all_providers
 
-    rows: list[tuple[str, bool, str]] = []
+    rows: list[ProviderStatus] = []
     async with HttpClient(config.timeout_seconds, max_retries=0) as http:
         for provider in all_providers(config):
             if not provider.configured:
-                rows.append((provider.name, False, provider.setup_hint()))
+                rows.append(
+                    ProviderStatus(provider.name, "unconfigured", provider.setup_hint())
+                )
                 continue
             try:
-                rows.append((provider.name, True, await provider.probe(http)))
+                detail = await provider.probe(http)
+            except TravelAgentError as exc:
+                rows.append(ProviderStatus(provider.name, "failing", str(exc)))
             except Exception as exc:
-                rows.append((provider.name, False, f"{type(exc).__name__}: {exc}"))
+                rows.append(
+                    ProviderStatus(
+                        provider.name, "failing", f"{type(exc).__name__}: {exc}"
+                    )
+                )
+            else:
+                rows.append(ProviderStatus(provider.name, "ready", detail))
     return rows

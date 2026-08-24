@@ -246,6 +246,26 @@ class ProviderError:
 
 
 @dataclass
+class ProviderStatus:
+    """Health of one provider.
+
+    "Off" is not one condition but two, with opposite remedies: no
+    credentials (add a token) versus configured-but-unreachable (fix the
+    network, or wait out the outage). Collapsing them sends people to edit a
+    .env file that was already correct.
+    """
+
+    name: str
+    state: str
+    """One of: ready, unconfigured, failing."""
+    detail: str
+
+    @property
+    def ok(self) -> bool:
+        return self.state == "ready"
+
+
+@dataclass
 class SearchResult:
     """What a fan-out returns: the quotes plus an honest account of failures."""
 

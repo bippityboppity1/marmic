@@ -145,14 +145,38 @@ async def _cmd_calendar(args, config: Config) -> str:
     return render_calendar(calendar, query.origin, query.destination)
 
 
+def _doctor_footer(rows) -> list[str]:
+    """Say precisely which of the two problems each provider has.
+
+    Both can be true at once, and Hotellook needs no credentials at all — so
+    never assert that a token is set. A missing key and an unreachable host
+    look identical in a status table and have opposite remedies.
+    """
+    failing = [r.name for r in rows if r.state == "failing"]
+    unconfigured = [r.name for r in rows if r.state == "unconfigured"]
+
+    lines = ["", "**No price source is usable right now.**"]
+    if failing:
+        lines.append(
+            f"- Unreachable: {', '.join(failing)} — a network or provider problem. "
+            "Adding or changing a token will not fix this."
+        )
+    if unconfigured:
+        lines.append(f"- Not set up: {', '.join(unconfigured)} — see the hints above.")
+    return lines
+
+
+MARKS = {"ready": "✅ ready", "unconfigured": "⚪ no key", "failing": "❌ failing"}
+
+
 async def _cmd_doctor(config: Config) -> str:
     rows = await probe_providers(config)
     lines = ["| Provider | Status | Detail |", "| --- | --- | --- |"]
-    for name, ok, detail in rows:
-        lines.append(f"| {name} | {'✅ ready' if ok else '⚪ off'} | {detail} |")
+    for row in rows:
+        lines.append(f"| {row.name} | {MARKS[row.state]} | {row.detail} |")
 
-    if not any(ok for _n, ok, _d in rows):
-        lines += ["", "**No providers configured.** Copy `.env.example` to `.env` and add a token."]
+    if not any(row.ok for row in rows):
+        lines += _doctor_footer(rows)
     return "\n".join(lines)
 
 

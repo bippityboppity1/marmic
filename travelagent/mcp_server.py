@@ -187,10 +187,20 @@ async def cheapest_dates_tool(
 async def provider_status_tool() -> str:
     rows = await probe_providers(_config())
     lines = ["| Provider | Status | Detail |", "| --- | --- | --- |"]
-    for name, ok, detail in rows:
-        lines.append(f"| {name} | {'ready' if ok else 'off'} | {detail} |")
-    if not any(ok for _n, ok, _d in rows):
-        lines += ["", "No price sources are configured — every result will be empty."]
+    for row in rows:
+        lines.append(f"| {row.name} | {row.state} | {row.detail} |")
+
+    if not any(row.ok for row in rows):
+        failing = [r.name for r in rows if r.state == "failing"]
+        unconfigured = [r.name for r in rows if r.state == "unconfigured"]
+        lines += ["", "No price source is usable — every search will come back empty."]
+        if failing:
+            lines.append(
+                f"Unreachable: {', '.join(failing)} — a network or provider problem, "
+                "not a missing API key."
+            )
+        if unconfigured:
+            lines.append(f"Not set up: {', '.join(unconfigured)}.")
     return "\n".join(lines)
 
 
