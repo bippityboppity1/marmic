@@ -1,0 +1,11 @@
+{
+  "success": true,
+  "data": [
+    {"depart_date": "2026-10-13", "value": 210, "origin": "NAP", "destination": "LHR"},
+    {"depart_date": "2026-10-14", "value": 128, "origin": "NAP", "destination": "LHR"},
+    {"depart_date": "2026-10-15", "value": 184, "origin": "NAP", "destination": "LHR"},
+    {"depart_date": "2026-10-15", "value": 176, "origin": "NAP", "destination": "LHR"},
+    {"depart_date": "2026-10-16", "value": 96, "origin": "NAP", "destination": "LHR"}
+  ],
+  "error": null
+}

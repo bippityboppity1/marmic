@@ -1,0 +1,198 @@
+"""Command line entry point.
+
+argparse rather than a CLI framework: one less dependency, and this surface
+is small enough that the framework would not earn its keep.
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import json
+import sys
+from datetime import date
+
+from .config import Config
+from .errors import TravelAgentError
+from .http import HttpClient
+from .query import FlightSearch, HotelSearch
+from .report import render_calendar, render_flights, render_hotels
+from .search import probe_providers, search_flights, search_hotels
+from .serde import flight_to_dict, hotel_to_dict
+
+
+def _add_common(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--currency", help="ISO currency code (default from config)")
+    parser.add_argument("--limit", type=int, default=10, help="rows to show")
+    parser.add_argument("--json", action="store_true", help="emit JSON instead of markdown")
+    parser.add_argument("--no-cache", action="store_true", help="bypass the price cache")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="travelagent", description="Real travel prices with provenance."
+    )
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    flights = sub.add_parser("flights", help="search fares")
+    flights.add_argument("origin", help="IATA code, e.g. NAP")
+    flights.add_argument("destination", help="IATA code, e.g. LHR")
+    flights.add_argument("--depart", required=True, help="YYYY-MM-DD")
+    flights.add_argument("--return", dest="return_date", help="YYYY-MM-DD")
+    flights.add_argument("--adults", type=int, default=1)
+    flights.add_argument("--children", type=int, default=0)
+    flights.add_argument("--infants", type=int, default=0)
+    flights.add_argument("--cabin", default="economy")
+    flights.add_argument("--max-connections", type=int)
+    flights.add_argument(
+        "--flex", type=int, default=0, metavar="DAYS",
+        help="also check +/- DAYS around the departure date",
+    )
+    _add_common(flights)
+
+    hotels = sub.add_parser("hotels", help="search stays")
+    hotels.add_argument("location", help="city name or IATA code")
+    hotels.add_argument("--checkin", required=True, help="YYYY-MM-DD")
+    hotels.add_argument("--checkout", required=True, help="YYYY-MM-DD")
+    hotels.add_argument("--adults", type=int, default=2)
+    hotels.add_argument("--rooms", type=int, default=1)
+    hotels.add_argument("--max-per-night", type=float)
+    hotels.add_argument("--min-stars", type=float)
+    _add_common(hotels)
+
+    calendar = sub.add_parser("calendar", help="cheapest departure dates in a month")
+    calendar.add_argument("origin")
+    calendar.add_argument("destination")
+    calendar.add_argument("--month", required=True, help="YYYY-MM")
+    calendar.add_argument("--currency")
+
+    sub.add_parser("doctor", help="check every provider's credentials and contract")
+
+    cache = sub.add_parser("cache", help="inspect or clear the price cache")
+    cache.add_argument("--clear", action="store_true")
+
+    return parser
+
+
+async def _cmd_flights(args, config: Config) -> str:
+    query = FlightSearch(
+        origin=args.origin,
+        destination=args.destination,
+        depart_date=args.depart,
+        return_date=args.return_date,
+        adults=args.adults,
+        children=args.children,
+        infants=args.infants,
+        cabin=args.cabin,
+        max_connections=args.max_connections,
+        currency=args.currency or config.currency,
+        date_flexibility_days=args.flex,
+    )
+    result = await search_flights(query, config)
+    if args.json:
+        return json.dumps(
+            {
+                "query": result.query,
+                "flights": [flight_to_dict(q) for q in result.flights[: args.limit]],
+                "errors": [vars(e) for e in result.errors],
+            },
+            indent=2,
+        )
+    return render_flights(result, args.limit)
+
+
+async def _cmd_hotels(args, config: Config) -> str:
+    query = HotelSearch(
+        location=args.location,
+        check_in=args.checkin,
+        check_out=args.checkout,
+        adults=args.adults,
+        rooms=args.rooms,
+        currency=args.currency or config.currency,
+        limit=max(args.limit, 20),
+        max_price_per_night=args.max_per_night,
+        min_stars=args.min_stars,
+    )
+    result = await search_hotels(query, config)
+    if args.json:
+        return json.dumps(
+            {
+                "query": result.query,
+                "hotels": [hotel_to_dict(h) for h in result.hotels[: args.limit]],
+                "errors": [vars(e) for e in result.errors],
+            },
+            indent=2,
+        )
+    return render_hotels(result, args.limit)
+
+
+async def _cmd_calendar(args, config: Config) -> str:
+    from .providers.travelpayouts import TravelpayoutsProvider
+
+    provider = TravelpayoutsProvider(config)
+    if not provider.configured:
+        return f"_Price calendar needs Travelpayouts._ {provider.setup_hint()}"
+
+    month = date.fromisoformat(f"{args.month}-01")
+    query = FlightSearch(
+        origin=args.origin,
+        destination=args.destination,
+        depart_date=month,
+        currency=args.currency or config.currency,
+    )
+    async with HttpClient(config.timeout_seconds, config.max_retries) as http:
+        calendar = await provider.price_calendar(query, http, month=month)
+    return render_calendar(calendar, query.origin, query.destination)
+
+
+async def _cmd_doctor(config: Config) -> str:
+    rows = await probe_providers(config)
+    lines = ["| Provider | Status | Detail |", "| --- | --- | --- |"]
+    for name, ok, detail in rows:
+        lines.append(f"| {name} | {'✅ ready' if ok else '⚪ off'} | {detail} |")
+
+    if not any(ok for _n, ok, _d in rows):
+        lines += ["", "**No providers configured.** Copy `.env.example` to `.env` and add a token."]
+    return "\n".join(lines)
+
+
+def _cmd_cache(args, config: Config) -> str:
+    from .cache import PriceCache
+
+    cache = PriceCache(config.cache_path, config.cache_ttl_seconds, True)
+    if args.clear:
+        cache.clear()
+        cache.close()
+        return f"Cache cleared ({config.cache_path})."
+    purged = cache.purge_expired()
+    cache.close()
+    return f"Cache at {config.cache_path}; purged {purged} expired row(s)."
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    config = Config.from_env()
+    if getattr(args, "no_cache", False):
+        config.cache_enabled = False
+
+    try:
+        if args.command == "flights":
+            print(asyncio.run(_cmd_flights(args, config)))
+        elif args.command == "hotels":
+            print(asyncio.run(_cmd_hotels(args, config)))
+        elif args.command == "calendar":
+            print(asyncio.run(_cmd_calendar(args, config)))
+        elif args.command == "doctor":
+            print(asyncio.run(_cmd_doctor(config)))
+        elif args.command == "cache":
+            print(_cmd_cache(args, config))
+    except TravelAgentError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    except KeyboardInterrupt:
+        return 130
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

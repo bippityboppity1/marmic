@@ -1,0 +1,32 @@
+[
+  {
+    "hotelId": 1234,
+    "hotelName": "Hotel Piazza Bellini",
+    "stars": 4,
+    "priceFrom": 268.5,
+    "priceAvg": 310.0,
+    "distance": 0.8,
+    "rating": 8.7,
+    "location": {"name": "Centro Storico", "country": "Italy", "geo": {"lat": 40.85, "lon": 14.25}}
+  },
+  {
+    "hotelId": 5678,
+    "hotelName": "Ostello Vergini",
+    "stars": 2,
+    "priceFrom": 94.0,
+    "priceAvg": 110.0,
+    "distance": 1.6,
+    "rating": 7.9,
+    "location": {"name": "Sanità", "country": "Italy"}
+  },
+  {
+    "hotelId": 9012,
+    "hotelName": "Grand Hotel Vesuvio",
+    "stars": 5,
+    "priceFrom": 940.0,
+    "priceAvg": 1020.0,
+    "distance": 2.1,
+    "rating": 9.2,
+    "location": {"name": "Lungomare", "country": "Italy"}
+  }
+]

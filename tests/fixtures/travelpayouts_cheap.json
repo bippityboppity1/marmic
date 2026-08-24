@@ -1,0 +1,24 @@
+{
+  "success": true,
+  "data": {
+    "LHR": {
+      "0": {
+        "price": 96,
+        "airline": "FR",
+        "flight_number": 8391,
+        "departure_at": "2026-10-15T06:40:00Z",
+        "return_at": "2026-10-22T20:15:00Z",
+        "expires_at": "2026-08-25T09:00:00Z"
+      },
+      "1": {
+        "price": 184,
+        "airline": "BA",
+        "flight_number": 2611,
+        "departure_at": "2026-10-15T07:15:00Z",
+        "return_at": "2026-10-22T18:00:00Z",
+        "expires_at": "2026-08-25T09:00:00Z"
+      }
+    }
+  },
+  "error": null
+}

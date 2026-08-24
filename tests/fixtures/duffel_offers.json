@@ -1,0 +1,77 @@
+{
+  "data": {
+    "id": "orq_0000AaBbCc",
+    "live_mode": false,
+    "cabin_class": "economy",
+    "offers": [
+      {
+        "id": "off_0000nonstop",
+        "total_amount": "184.32",
+        "total_currency": "EUR",
+        "expires_at": "2026-08-24T16:30:00Z",
+        "owner": {"iata_code": "BA", "name": "British Airways"},
+        "slices": [
+          {
+            "origin": {"iata_code": "NAP"},
+            "destination": {"iata_code": "LHR"},
+            "duration": "PT3H05M",
+            "segments": [
+              {
+                "origin": {"iata_code": "NAP"},
+                "destination": {"iata_code": "LHR"},
+                "departing_at": "2026-10-15T07:15:00",
+                "arriving_at": "2026-10-15T09:20:00",
+                "marketing_carrier": {"iata_code": "BA", "name": "British Airways"},
+                "marketing_carrier_flight_number": "2611",
+                "aircraft": {"name": "Airbus A320"},
+                "duration": "PT3H05M",
+                "passengers": [
+                  {
+                    "baggages": [{"type": "checked", "quantity": 1}],
+                    "cabin": {"amenities": {"seats_remaining": 4}}
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "off_0000tight",
+        "total_amount": "121.90",
+        "total_currency": "EUR",
+        "expires_at": "2026-08-24T16:30:00Z",
+        "owner": {"iata_code": "LH", "name": "Lufthansa"},
+        "slices": [
+          {
+            "origin": {"iata_code": "NAP"},
+            "destination": {"iata_code": "LHR"},
+            "duration": "PT6H40M",
+            "segments": [
+              {
+                "origin": {"iata_code": "NAP"},
+                "destination": {"iata_code": "MUC"},
+                "departing_at": "2026-10-15T06:00:00",
+                "arriving_at": "2026-10-15T07:45:00",
+                "marketing_carrier": {"iata_code": "LH", "name": "Lufthansa"},
+                "marketing_carrier_flight_number": "1955",
+                "duration": "PT1H45M",
+                "passengers": [{"baggages": [{"type": "carry_on", "quantity": 1}]}]
+              },
+              {
+                "origin": {"iata_code": "MUC"},
+                "destination": {"iata_code": "LHR"},
+                "departing_at": "2026-10-15T08:20:00",
+                "arriving_at": "2026-10-15T09:30:00",
+                "marketing_carrier": {"iata_code": "LH", "name": "Lufthansa"},
+                "marketing_carrier_flight_number": "2472",
+                "duration": "PT2H10M",
+                "passengers": [{"baggages": []}]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
