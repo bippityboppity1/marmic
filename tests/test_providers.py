@@ -208,3 +208,21 @@ async def test_transport_failures_propagate(config, hotel_query):
     http = FailingHttp(Blocked("egress blocked"))
     with pytest.raises(Blocked):
         await HotellookProvider(config).search_hotels(hotel_query, http)
+
+
+async def test_travelpayouts_does_not_claim_a_stop_count(config, flight_query):
+    """This API returns one summary row per itinerary and never says how many
+    legs it has. Reporting that as 'nonstop' would invent a fact."""
+    http = FakeHttp(load_json("travelpayouts_cheap.json"))
+    quotes = await TravelpayoutsProvider(config).search_flights(flight_query, http)
+
+    assert all(q.stops is None for q in quotes)
+    assert all(sl.is_summary for q in quotes for sl in q.slices)
+
+
+async def test_duffel_stop_counts_are_known_because_legs_are_enumerated(config, flight_query):
+    http = FakeHttp(load_json("duffel_offers.json"))
+    nonstop, connecting = await DuffelProvider(config).search_flights(flight_query, http)
+
+    assert nonstop.stops == 0        # genuinely nonstop, not merely unreported
+    assert connecting.stops == 1

@@ -5,3 +5,4 @@ __pycache__/
 .pytest_cache/
 .env
 scraper-debug/
+.ruff_cache/

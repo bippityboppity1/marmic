@@ -52,6 +52,7 @@ def flight_to_dict(q: FlightQuote) -> dict[str, Any]:
                 "destination": s.destination,
                 "duration_minutes": s.duration_minutes,
                 "stop_count": s.stop_count,
+                "is_summary": s.is_summary,
                 "segments": [
                     {
                         "origin": seg.origin,
@@ -82,6 +83,7 @@ def flight_from_dict(d: dict[str, Any]) -> FlightQuote:
                 destination=s["destination"],
                 duration_minutes=s.get("duration_minutes"),
                 stop_count=s.get("stop_count"),
+                is_summary=s.get("is_summary", False),
                 segments=[
                     Segment(
                         origin=seg["origin"],

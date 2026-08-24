@@ -26,7 +26,23 @@ def _fmt_duration(minutes: int | None) -> str:
 
 def _stops(quote: FlightQuote) -> str:
     stops = quote.stops
+    if stops is None:
+        return "—"
     return "nonstop" if stops == 0 else f"{stops} stop" + ("s" if stops > 1 else "")
+
+
+def _stops_phrase(quote: FlightQuote) -> str:
+    """Prose form, for sentences rather than table cells."""
+    stops = quote.stops
+    if stops is None:
+        return "stops not reported"
+    return "nonstop" if stops == 0 else f"{stops} stop" + ("s" if stops > 1 else "")
+
+
+def _describe(quote: FlightQuote) -> str:
+    """Price plus the two facts that qualify it: provenance and stops."""
+    basis = "bookable" if quote.bookable else quote.freshness.label
+    return f"{quote.price} ({basis}, {_stops_phrase(quote)})"
 
 
 def _route(quote: FlightQuote) -> str:
@@ -162,16 +178,27 @@ def render_flights(result: SearchResult, limit: int = 10) -> str:
 
     cheapest = result.cheapest_flight()
     value = best_value_flight(result.flights)
+    bookable = result.cheapest_bookable_flight()
+
     if cheapest and value and value is not cheapest:
         parts += [
             "",
-            f"**Cheapest** {cheapest.price} ({_stops(cheapest)}) · "
-            f"**Best value** {value.price} ({_stops(value)}, "
-            f"{_fmt_duration(value.total_duration_minutes)}) — "
+            f"**Cheapest** {_describe(cheapest)} · "
+            f"**Best value** {_describe(value)}, "
+            f"{_fmt_duration(value.total_duration_minutes)} — "
             "the gap buys back time or removes a fragile connection.",
         ]
     elif cheapest:
-        parts += ["", f"**Cheapest** {cheapest.price} ({_stops(cheapest)})."]
+        parts += ["", f"**Cheapest** {_describe(cheapest)}."]
+
+    # The headline number being unbuyable is the single most useful caveat
+    # here, so state the gap in money rather than leaving it to the labels.
+    if cheapest and bookable and bookable is not cheapest:
+        gap = bookable.price.amount - cheapest.price.amount
+        parts += [
+            f"**Cheapest you can actually book** {_describe(bookable)} — "
+            f"{gap:,.0f} {bookable.price.currency} above the headline.",
+        ]
 
     if notes := warnings(result):
         parts += ["", *(f"- {n}" for n in notes)]

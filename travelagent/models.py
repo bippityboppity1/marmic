@@ -91,11 +91,21 @@ class Slice:
     """Set only when a source reports the number of stops without naming the
     legs. Fabricating placeholder segments instead would invent connection
     times that were never in the data."""
+    is_summary: bool = False
+    """True when the segments summarise a journey rather than enumerate it.
+
+    Some sources return one row per itinerary with no leg breakdown. There a
+    single segment means "we were not told", not "nonstop" — and rendering it
+    as nonstop would be inventing a fact about the booking.
+    """
 
     @property
-    def stops(self) -> int:
+    def stops(self) -> int | None:
+        """Stop count, or None when the source never told us."""
         if self.stop_count is not None:
             return self.stop_count
+        if self.is_summary:
+            return None
         return max(len(self.segments) - 1, 0)
 
     @property
@@ -142,8 +152,9 @@ class FlightQuote:
     raw: dict[str, Any] = field(default_factory=dict, repr=False)
 
     @property
-    def stops(self) -> int:
-        return max((s.stops for s in self.slices), default=0)
+    def stops(self) -> int | None:
+        known = [s.stops for s in self.slices if s.stops is not None]
+        return max(known) if known else None
 
     @property
     def carriers(self) -> list[str]:

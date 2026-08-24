@@ -172,7 +172,12 @@ def dedupe_hotels(quotes: Iterable[HotelQuote]) -> list[HotelQuote]:
 
 
 def rank_flights(quotes: list[FlightQuote]) -> list[FlightQuote]:
-    return sorted(quotes, key=lambda q: (q.price.amount, q.stops))
+    # Unknown stop counts sort after known ones at the same price: a
+    # confirmed nonstop is worth more than an unspecified itinerary.
+    return sorted(
+        quotes,
+        key=lambda q: (q.price.amount, 99 if q.stops is None else q.stops),
+    )
 
 
 def rank_hotels(quotes: list[HotelQuote]) -> list[HotelQuote]:
@@ -211,7 +216,9 @@ def best_value_flight(quotes: list[FlightQuote]) -> FlightQuote | None:
 
     def score(q: FlightQuote) -> float:
         penalty = float(q.price.amount) - cheapest
-        penalty += q.stops * per_stop
+        # An unknown stop count is not a free pass, but it is not evidence
+        # of a stop either — charge it as though it were one connection.
+        penalty += (1 if q.stops is None else q.stops) * per_stop
 
         if fastest and q.total_duration_minutes:
             slower_hours = max(0, q.total_duration_minutes - fastest) / 60

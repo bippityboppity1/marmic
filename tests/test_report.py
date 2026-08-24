@@ -121,3 +121,38 @@ def test_calendar_names_the_saving():
 
 def test_empty_calendar_says_so():
     assert "No price calendar" in render_calendar({}, "NAP", "LHR")
+
+
+def test_unknown_stop_count_renders_as_unknown_not_nonstop():
+    from travelagent.models import FlightQuote, Money, Slice
+
+    summary = FlightQuote(
+        provider="travelpayouts",
+        price=Money.of(96, "EUR"),
+        slices=[Slice("NAP", "LHR", [], is_summary=True)],
+    )
+    out = render_flights(result_with(summary))
+
+    assert "nonstop" not in out
+    assert "| — |" in out
+
+
+def test_unbuyable_headline_price_names_the_real_cost():
+    """The cheapest row being unbookable is the most useful caveat there is,
+    so state the gap in money rather than leaving it to the labels."""
+    cached = make_quote(provider="travelpayouts", price=96, designator="FR8391")
+    live = make_quote(
+        provider="duffel", price=122, designator="LH100", bookable=True,
+        freshness=Freshness.LIVE,
+    )
+    out = render_flights(result_with(cached, live))
+
+    assert "**Cheapest** 96 EUR (cached" in out
+    assert "**Cheapest you can actually book** 122 EUR (bookable" in out
+    assert "26 EUR above the headline" in out
+
+
+def test_no_redundant_book_line_when_the_cheapest_is_bookable():
+    live = make_quote(provider="duffel", price=122, bookable=True, freshness=Freshness.LIVE)
+    out = render_flights(result_with(live))
+    assert "Cheapest you can actually book" not in out

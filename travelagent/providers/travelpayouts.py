@@ -92,6 +92,7 @@ class TravelpayoutsProvider(Provider):
 
         slices = [
             Slice(
+                is_summary=True,
                 origin=q.origin,
                 destination=dest,
                 segments=[
@@ -110,6 +111,7 @@ class TravelpayoutsProvider(Provider):
         if ret:
             slices.append(
                 Slice(
+                    is_summary=True,
                     origin=dest,
                     destination=q.origin,
                     segments=[
