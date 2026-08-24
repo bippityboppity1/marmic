@@ -1,5 +1,8 @@
 # Running travelagent
 
+**On Windows? Use [SETUP-WINDOWS.md](SETUP-WINDOWS.md) instead** — the commands
+differ enough that translating them will cost you an afternoon.
+
 Every command below is run on **your** machine, not in a Claude Code web session.
 The web sandbox blocks outbound traffic to travel APIs, so live prices only work
 locally.

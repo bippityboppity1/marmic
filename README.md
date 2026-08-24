@@ -46,7 +46,8 @@ pip install -e '.[mcp]'   # + the MCP server Claude talks to
 pip install -e '.[all]'   # + browser-driven price reading
 ```
 
-See **docs/SETUP.md** for the full step-by-step. In short:
+Full step-by-step: **docs/SETUP.md** (macOS/Linux) or
+**docs/SETUP-WINDOWS.md** (Windows). In short:
 
 ```bash
 cp .env.example .env      # add at least one token
