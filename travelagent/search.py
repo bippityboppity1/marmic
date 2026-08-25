@@ -245,6 +245,11 @@ async def probe_providers(config: Config) -> list[ProviderStatus]:
     rows: list[ProviderStatus] = []
     async with HttpClient(config.timeout_seconds, max_retries=0) as http:
         for provider in all_providers(config):
+            if getattr(provider, "retired", False):
+                rows.append(
+                    ProviderStatus(provider.name, "retired", provider.setup_hint())
+                )
+                continue
             if not provider.configured:
                 rows.append(
                     ProviderStatus(provider.name, "unconfigured", provider.setup_hint())

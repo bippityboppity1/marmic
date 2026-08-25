@@ -34,4 +34,8 @@ def all_providers(config: Config) -> list[Provider]:
 def active_providers(config: Config, kind: str) -> list[Provider]:
     """Configured providers that support `kind` ('flights' or 'hotels')."""
     attr = f"supports_{kind}"
-    return [p for p in all_providers(config) if getattr(p, attr, False) and p.configured]
+    return [
+        p
+        for p in all_providers(config)
+        if getattr(p, attr, False) and p.configured and not getattr(p, "retired", False)
+    ]

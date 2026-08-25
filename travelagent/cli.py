@@ -102,6 +102,16 @@ async def _cmd_flights(args, config: Config) -> str:
 
 
 async def _cmd_hotels(args, config: Config) -> str:
+    from .providers.registry import active_providers
+
+    if not active_providers(config, "hotels"):
+        return (
+            "_No hotel price source is available._ Hotellook, the only one this "
+            "package shipped with, was shut down by Travelpayouts and its API no "
+            "longer answers. Flights are unaffected. Restoring hotels means "
+            "adding a new provider adapter, not changing a token."
+        )
+
     query = HotelSearch(
         location=args.location,
         check_in=args.checkin,
@@ -154,6 +164,7 @@ def _doctor_footer(rows) -> list[str]:
     """
     failing = [r.name for r in rows if r.state == "failing"]
     unconfigured = [r.name for r in rows if r.state == "unconfigured"]
+    retired = [r.name for r in rows if r.state == "retired"]
 
     lines = ["", "**No price source is usable right now.**"]
     if failing:
@@ -163,10 +174,20 @@ def _doctor_footer(rows) -> list[str]:
         )
     if unconfigured:
         lines.append(f"- Not set up: {', '.join(unconfigured)} — see the hints above.")
+    if retired:
+        lines.append(
+            f"- Gone for good: {', '.join(retired)} — the upstream service shut down. "
+            "Not something to debug; it needs replacing."
+        )
     return lines
 
 
-MARKS = {"ready": "✅ ready", "unconfigured": "⚪ no key", "failing": "❌ failing"}
+MARKS = {
+    "ready": "✅ ready",
+    "unconfigured": "⚪ no key",
+    "failing": "❌ failing",
+    "retired": "🪦 retired",
+}
 
 
 async def _cmd_doctor(config: Config) -> str:

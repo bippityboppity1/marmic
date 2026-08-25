@@ -22,6 +22,16 @@ class Provider(abc.ABC):
     supports_flights: bool = False
     supports_hotels: bool = False
     is_scraper: bool = False
+    retired: bool = False
+    """True when the upstream service is permanently gone.
+
+    A third condition distinct from the two the status table already knows
+    about: unconfigured means add a token, failing means fix the network or
+    wait out an outage. Retired means neither will ever help. Retired
+    providers are excluded from searches and reported as retired rather than
+    broken, so nobody debugs a credential against a host that no longer
+    serves an API.
+    """
     cacheable: bool = True
     """False for sources whose prices are live and perishable.
 

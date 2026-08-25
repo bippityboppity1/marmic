@@ -1,13 +1,21 @@
-"""Hotellook hotel prices (Travelpayouts family).
+"""Hotellook hotel prices (Travelpayouts family) — RETIRED.
 
-Serves cached nightly prices for a location and date range. It explicitly
-does not check room availability, so these are CACHED — good for picking a
-neighborhood and a tier, not for promising a room exists.
+Travelpayouts shut Hotellook down: the brand closed, the affiliate programme
+closed, and the API stopped serving. Bookings were tracked only through
+2025-10-20. Verified from this machine on 2026-08-26 — every path on
+engine.hotellook.com returns an identical 146-byte nginx 404, including the
+bare root, and yasen.hotellook.com behaves the same. A retired host, not a
+moved endpoint: a changed response shape would still answer with JSON.
 
-Contract (verified Aug 2026):
+The contract below was written from documentation that described a live
+service. The parser and its tests are kept deliberately — they still pin the
+shape this API used to return, and they are the starting point if hotels are
+ever re-sourced from another provider. Nothing calls them in production while
+`retired` is True.
+
+Former contract:
   GET https://engine.hotellook.com/api/v2/cache.json
   params: location, checkIn, checkOut, currency, limit, token
-  Rate limits come back in X-Ratelimit-* headers.
 """
 
 from __future__ import annotations
@@ -27,19 +35,18 @@ BASE_URL = "https://engine.hotellook.com/api/v2"
 class HotellookProvider(Provider):
     name = "hotellook"
     supports_hotels = True
+    retired = True
 
     @property
     def configured(self) -> bool:
-        # The endpoint answers without a token at a much lower rate limit,
-        # so it is usable unconfigured — just say so honestly in the hint.
-        return True
+        # Never configurable again — the service it talks to is gone.
+        return False
 
     def setup_hint(self) -> str:
-        if self.config.travelpayouts_token:
-            return "Using TRAVELPAYOUTS_TOKEN."
         return (
-            "Works without a token at a reduced rate limit. Set "
-            "TRAVELPAYOUTS_TOKEN to lift it."
+            "Hotellook was shut down by Travelpayouts (API off since late "
+            "2025); no token will revive it. Hotel search needs a new "
+            "source — see the module docstring."
         )
 
     async def search_hotels(self, query: HotelSearch, http) -> list[HotelQuote]:

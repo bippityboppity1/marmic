@@ -257,7 +257,7 @@ class ProviderStatus:
 
     name: str
     state: str
-    """One of: ready, unconfigured, failing."""
+    """One of: ready, unconfigured, failing, retired."""
     detail: str
 
     @property
