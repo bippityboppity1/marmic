@@ -142,6 +142,19 @@ class FlightQuote:
     freshness: Freshness = Freshness.CACHED
     bookable: bool = False
     """True only when the provider can actually sell this offer."""
+    sandbox: bool = False
+    """True when the offer came out of a provider's test environment.
+
+    Duffel test tokens return offers that are live, sellable and priced — for
+    airlines that do not exist, mixed in with real IATA codes. Every signal
+    that normally means "this is a real price" is present and correct, which
+    makes it the most dangerous number this package can produce: it passes
+    every check a reader would think to apply.
+
+    Kept separate from `bookable` rather than folded into it, because the
+    provider's raw fact is still true. What changes is whether anyone may
+    repeat the number, which is `quotable`.
+    """
     observed_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime | None = None
     deep_link: str | None = None
@@ -150,6 +163,11 @@ class FlightQuote:
     baggage: str | None = None
     seats_remaining: int | None = None
     raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+    @property
+    def quotable(self) -> bool:
+        """True when this number may be stated as an actual price."""
+        return self.bookable and not self.sandbox
 
     @property
     def stops(self) -> int | None:
@@ -288,5 +306,5 @@ class SearchResult:
         return min(self.flights, key=lambda q: q.price.amount, default=None)
 
     def cheapest_bookable_flight(self) -> FlightQuote | None:
-        live = [q for q in self.flights if q.bookable]
+        live = [q for q in self.flights if q.quotable]
         return min(live, key=lambda q: q.price.amount, default=None)

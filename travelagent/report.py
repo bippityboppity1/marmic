@@ -39,10 +39,23 @@ def _stops_phrase(quote: FlightQuote) -> str:
     return "nonstop" if stops == 0 else f"{stops} stop" + ("s" if stops > 1 else "")
 
 
+def _basis(quote: FlightQuote, *, emphasis: bool = False) -> str:
+    """The provenance label.
+
+    `sandbox` outranks everything else: a test-mode offer is live and sellable
+    and would otherwise print as **bookable**, the one label that licenses
+    stating a number as a price.
+    """
+    if quote.sandbox:
+        return "🧪 sandbox" if emphasis else "sandbox"
+    if quote.bookable:
+        return "**bookable**" if emphasis else "bookable"
+    return quote.freshness.label
+
+
 def _describe(quote: FlightQuote) -> str:
     """Price plus the two facts that qualify it: provenance and stops."""
-    basis = "bookable" if quote.bookable else quote.freshness.label
-    return f"{quote.price} ({basis}, {_stops_phrase(quote)})"
+    return f"{quote.price} ({_basis(quote)}, {_stops_phrase(quote)})"
 
 
 def _route(quote: FlightQuote) -> str:
@@ -84,7 +97,7 @@ def flights_table(result: SearchResult, limit: int = 10) -> str:
         carrier = ", ".join(q.carriers) or (
             out.segments[0].carrier_name if out and out.segments else "—"
         )
-        basis = "**bookable**" if q.bookable else q.freshness.label
+        basis = _basis(q, emphasis=True)
         rows.append(
             "| {price} | {basis} | {route} | {dep} | {arr} | {dur} | {stops} | {carrier} | {src} |".format(
                 price=q.price,
@@ -151,7 +164,17 @@ def warnings(result: SearchResult) -> list[str]:
             "no protection if the first leg slips."
         )
 
-    if result.flights and not any(q.bookable for q in result.flights):
+    sandboxed = [q for q in result.flights if q.sandbox]
+    if sandboxed:
+        notes.append(
+            f"{len(sandboxed)} of these fares came from a Duffel **test token**: "
+            "invented inventory priced by a sandbox, not real fares. They are "
+            "designed to look real and will include familiar airline codes. Do not "
+            "quote them, budget from them, or compare them against a real quote. A "
+            "live token returns real prices."
+        )
+
+    if result.flights and not sandboxed and not any(q.quotable for q in result.flights):
         notes.append(
             "No live bookable fares in these results — every price here is a "
             "cached sighting and may already be gone. Treat as a planning range."

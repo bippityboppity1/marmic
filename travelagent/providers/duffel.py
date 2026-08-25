@@ -41,6 +41,11 @@ class DuffelProvider(Provider):
     def configured(self) -> bool:
         return bool(self.config.duffel_token)
 
+    @property
+    def is_sandbox(self) -> bool:
+        """Test tokens return invented inventory that looks entirely real."""
+        return str(self.config.duffel_token or "").startswith("duffel_test")
+
     def setup_hint(self) -> str:
         return (
             "Set DUFFEL_ACCESS_TOKEN. Sign up at duffel.com — test tokens are "
@@ -132,6 +137,7 @@ class DuffelProvider(Provider):
             slices=slices,
             freshness=Freshness.LIVE,
             bookable=True,
+            sandbox=self.is_sandbox,
             observed_at=utcnow(),
             expires_at=parse_dt(offer.get("expires_at")),
             offer_id=offer.get("id"),
@@ -175,8 +181,12 @@ class DuffelProvider(Provider):
             params={"limit": "1"},
         )
         count = len((payload or {}).get("data", []))
-        mode = "test" if str(self.config.duffel_token).startswith("duffel_test") else "live"
-        return f"authenticated ({mode} mode, airlines endpoint returned {count} row)"
+        if self.is_sandbox:
+            return (
+                f"authenticated (test mode, airlines endpoint returned {count} row) "
+                "— returns invented fares; not real prices"
+            )
+        return f"authenticated (live mode, airlines endpoint returned {count} row)"
 
 
 def _baggage_summary(offer: dict[str, Any]) -> str | None:

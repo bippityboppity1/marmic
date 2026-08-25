@@ -156,3 +156,36 @@ def test_no_redundant_book_line_when_the_cheapest_is_bookable():
     live = make_quote(provider="duffel", price=122, bookable=True, freshness=Freshness.LIVE)
     out = render_flights(result_with(live))
     assert "Cheapest you can actually book" not in out
+
+
+def _sandbox_quote(price=85, **kw):
+    return make_quote(
+        provider="duffel", price=price, bookable=True,
+        freshness=Freshness.LIVE, sandbox=True, **kw
+    )
+
+
+def test_sandbox_fares_are_never_labelled_bookable():
+    """The one label that means "say this out loud" must not appear."""
+    out = render_flights(result_with(_sandbox_quote()))
+    assert "**bookable**" not in out
+    assert "sandbox" in out
+
+
+def test_sandbox_results_carry_an_explicit_caveat():
+    out = render_flights(result_with(_sandbox_quote()))
+    assert any(w in out for w in ("test token", "not real fares"))
+
+
+def test_sandbox_fares_do_not_count_as_bookable():
+    fake = _sandbox_quote(price=85)
+    real = make_quote(provider="duffel", price=180, bookable=True, freshness=Freshness.LIVE)
+
+    cheapest = result_with(fake, real).cheapest_bookable_flight()
+    assert cheapest is not None
+    assert cheapest.price.amount == 180
+
+
+def test_an_all_sandbox_table_is_not_described_as_bookable():
+    out = render_flights(result_with(_sandbox_quote(), _sandbox_quote(price=90)))
+    assert "Cheapest you can actually book" not in out

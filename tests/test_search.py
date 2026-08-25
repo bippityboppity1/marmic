@@ -24,6 +24,7 @@ def make_quote(
     price=100,
     *,
     bookable=False,
+    sandbox=False,
     freshness=Freshness.CACHED,
     designator="BA2611",
     depart="2026-10-15T07:15:00",
@@ -60,6 +61,7 @@ def make_quote(
                       stop_count=stops if connection is None else None)],
         freshness=freshness,
         bookable=bookable,
+        sandbox=sandbox,
     )
 
 
@@ -339,3 +341,13 @@ def test_doctor_footer_omits_a_category_that_is_empty():
     )
     assert "Not set up: duffel" in footer
     assert "Unreachable" not in footer
+
+
+def test_sandbox_survives_a_cache_round_trip():
+    """The JSON surface feeds the MCP server, where the label does the work."""
+    from travelagent.serde import flight_from_dict, flight_to_dict
+
+    fake = make_quote(price=85, bookable=True, freshness=Freshness.LIVE, sandbox=True)
+    payload = flight_to_dict(fake)
+    assert payload["sandbox"] is True
+    assert flight_from_dict(payload).sandbox is True

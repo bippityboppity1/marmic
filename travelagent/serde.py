@@ -39,6 +39,8 @@ def flight_to_dict(q: FlightQuote) -> dict[str, Any]:
         "price": money_to_dict(q.price),
         "freshness": q.freshness.value,
         "bookable": q.bookable,
+        "sandbox": q.sandbox,
+        "quotable": q.quotable,
         "observed_at": _dt(q.observed_at),
         "expires_at": _dt(q.expires_at),
         "deep_link": q.deep_link,
@@ -103,6 +105,7 @@ def flight_from_dict(d: dict[str, Any]) -> FlightQuote:
         ],
         freshness=Freshness(d.get("freshness", "cached")),
         bookable=d.get("bookable", False),
+        sandbox=d.get("sandbox", False),
         observed_at=_undt(d.get("observed_at")),  # type: ignore[arg-type]
         expires_at=_undt(d.get("expires_at")),
         deep_link=d.get("deep_link"),

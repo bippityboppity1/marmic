@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -48,6 +49,28 @@ async def test_duffel_parses_offers(config, flight_query):
 
     assert connecting.stops == 1
     assert connecting.slices[0].duration_minutes == 400
+
+
+async def test_duffel_test_token_marks_offers_as_sandbox(config, flight_query):
+    """The `config` fixture carries a duffel_test_ token, as most setups do."""
+    http = FakeHttp(load_json("duffel_offers.json"))
+    quote = (await DuffelProvider(config).search_flights(flight_query, http))[0]
+
+    assert quote.sandbox is True
+    # Duffel really would sell this — inside its sandbox, for an airline that
+    # does not exist. The raw fact stays true; what changes is whether anyone
+    # may repeat the number.
+    assert quote.bookable is True
+    assert quote.quotable is False
+
+
+async def test_duffel_live_token_offers_are_quotable(config, flight_query):
+    live = replace(config, duffel_token="duffel_live_xyz789")
+    http = FakeHttp(load_json("duffel_offers.json"))
+    quote = (await DuffelProvider(live).search_flights(flight_query, http))[0]
+
+    assert quote.sandbox is False
+    assert quote.quotable is True
 
 
 async def test_duffel_offers_are_live_and_bookable(config, flight_query):

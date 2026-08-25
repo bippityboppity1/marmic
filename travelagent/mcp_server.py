@@ -21,14 +21,19 @@ from .report import render_calendar, render_flights, render_hotels
 from .search import probe_providers, search_flights, search_hotels
 
 INSTRUCTIONS = """\
-Live travel pricing. Three rules when using these results:
+Live travel pricing. Four rules when using these results:
 
 1. A row marked **bookable** is a real, sellable fare — quote it as a price.
    A row marked `cached` is a fare someone saw recently and may be gone —
    quote it as a range or an indication, never as a price.
-2. Prices carry a read timestamp. If it is more than an hour old in the
+2. A row marked `sandbox` is NOT a real fare. It comes from a Duffel test
+   token: invented inventory, priced plausibly, often on real airline codes.
+   Never state one as a price, put one in a budget, or compare one against a
+   real quote. Say the tool is in test mode and that real prices need a live
+   token. Treat a whole table of them as no pricing data at all.
+3. Prices carry a read timestamp. If it is more than an hour old in the
    conversation, re-run the search rather than repeating the old number.
-3. `cheapest_dates` before `search_flights` when dates are flexible. Moving
+4. `cheapest_dates` before `search_flights` when dates are flexible. Moving
    the date usually saves more than changing the airline.
 """
 
@@ -47,8 +52,9 @@ def _config() -> Config:
     name="search_flights",
     description=(
         "Search real flight prices for a route and date. Returns a markdown "
-        "table of fares with each price labelled bookable (live, sellable) or "
-        "cached (recently seen, may be gone), plus stops, duration, airline "
+        "table of fares with each price labelled bookable (live, sellable), "
+        "cached (recently seen, may be gone), or sandbox (a test token's "
+        "invented fare — never quotable), plus stops, duration, airline "
         "and warnings about tight connections or separate tickets. Use "
         "flexible_days to check nearby departure dates in the same call."
     ),

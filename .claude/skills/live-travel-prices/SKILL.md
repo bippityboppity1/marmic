@@ -18,6 +18,14 @@ Prices now arrive labelled, and the label decides the language:
 | **bookable** | Live inventory, sellable at that price right now | "184 EUR" — state it as a price |
 | `cached` | A real fare seen recently, may already be gone | "around 96 EUR" — a range or an indication |
 | `est.` | Historical or modelled | "typically 90–140" — a planning range only |
+| 🧪 `sandbox` | A test token's invented fare | Not a number. Do not say it at all |
+
+`sandbox` is the one that will fool you. Those rows are live, sellable and
+priced, on airline codes you recognise — they fail no smell test. They come
+from a Duffel **test token** and the inventory does not exist. Never quote one,
+never budget from one, never compare one against a real quote. If a whole table
+is sandbox, you have no pricing data: say the tool is in test mode and that real
+prices need a live token.
 
 Never promote a label. A cached 96 does not become "96 EUR" because it would
 make the budget work. When the cheapest number is cached and the cheapest
