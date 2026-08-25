@@ -64,12 +64,15 @@ announces itself rather than looking like an empty route.
 
 | Token prefix | Returns |
 | --- | --- |
-| `duffel_test_` | **Duffel Airways only — an airline that does not exist** |
+| `duffel_test_` | **Invented fares on real-looking airline codes** (IB, AA, BA, AZ, LX…) |
 | `duffel_live_` | Real fares from 300+ real airlines |
 
-If the first search returns one strange carrier at odd prices, nothing is broken —
-that is the sandbox. Live access needs a short review in the Duffel dashboard. Tell
-the user which kind they have rather than letting them conclude the tool is broken.
+Verified against the live sandbox on 2026-08-26: a test token does **not** return
+one obviously fake carrier. NAP→LHR came back on IB, AA, BA, AZ, LX, SN and OS
+alongside the fictional ZZ, at plausible prices and plausible times. There is no
+visual tell. The package now marks these `sandbox` rather than `bookable` and
+refuses to treat them as quotable — see `FlightQuote.sandbox`. Live access needs a
+short review in the Duffel dashboard.
 
 ## What to do
 

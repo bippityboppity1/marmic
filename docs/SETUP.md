@@ -65,7 +65,7 @@ quote as prices rather than as ranges.
 
 | Token | Returns | Use it for |
 | --- | --- | --- |
-| `duffel_test_...` | **Duffel Airways only** — a fake sandbox airline | Proving the plumbing works |
+| `duffel_test_...` | **Invented fares on real-looking airline codes** | Proving the plumbing works |
 | `duffel_live_...` | Real fares from 300+ real airlines | Actual trip planning |
 
 **Read that table again before you judge the results.** A test token returns

@@ -152,13 +152,18 @@ You will get one of two kinds:
 
 | Token | Returns | Good for |
 | --- | --- | --- |
-| `duffel_test_...` | **Duffel Airways only — an airline that does not exist** | Proving the setup works |
+| `duffel_test_...` | **Invented fares on real-looking airline codes** (IB, AA, BA, AZ, LX…) | Proving the setup works |
 | `duffel_live_...` | Real fares from 300+ real airlines | Actual trip planning |
 
 **Read that twice before you judge your first search.** A test token returns
-invented flights. If results come back with one strange carrier and odd prices,
-nothing is broken — that is the sandbox. Request live access in the Duffel
-dashboard (short review) and use the test token meanwhile.
+invented flights — but they do not look invented. A real NAP→LHR test search comes
+back on IB, AA, BA, AZ, LX, SN and OS at ordinary prices, with only the fictional
+ZZ hinting at anything. Do not go looking for a tell; there isn't one.
+
+The tool handles this for you: test-token fares are labelled 🧪 `sandbox` instead of
+**bookable**, excluded from "cheapest you can actually book", and flagged under the
+table. If you see that label, the number is not real. Request live access in the
+Duffel dashboard (short review) and use the test token meanwhile.
 
 **Optional but worth it:** a free token from **https://travelpayouts.com**
 (Dashboard → Developers → API tokens). Instant, no review, and it powers the
