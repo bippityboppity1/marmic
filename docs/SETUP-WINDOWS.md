@@ -200,10 +200,16 @@ documentation and pinned by tests, but no request has ever been made to a live A
 What success looks like:
 
 ```
-| duffel        | ✅ ready | authenticated (test mode, airlines endpoint returned 1 row) |
-| travelpayouts | ✅ ready | authenticated (LON->PAR probe returned 12 cached fares)      |
-| hotellook     | ✅ ready | reachable (with token, Rome probe returned 1 properties)     |
+| duffel        | ✅ ready   | authenticated (test mode, airlines endpoint returned 1 row) |
+| travelpayouts | ✅ ready   | authenticated (LON->PAR probe returned 12 cached fares)      |
+| hotellook     | 🪦 retired | Hotellook was shut down by Travelpayouts                     |
 ```
+
+**`hotellook` will always read retired.** Travelpayouts closed Hotellook and
+switched its API off in late 2025; every path on `engine.hotellook.com` now
+returns an nginx 404, including the bare root. No token revives it, and it is not
+a contract bug — restoring hotel search means writing an adapter for a different
+provider. Flights are unaffected.
 
 If nothing is ready, the footer says which of two problems you have — a missing key
 and an unreachable host need different fixes, and it names them separately.
@@ -251,10 +257,18 @@ echo "$PWD\.venv\Scripts\travelagent-mcp.exe"
 It prints something like
 `C:\Users\Mario\marmic\.venv\Scripts\travelagent-mcp.exe`. Copy that.
 
-Then register it, pasting your path and token:
+**If `claude` is "not recognized":** you are running the Claude *desktop app*,
+which does not put the CLI on your PATH. The binary it ships with works fine —
+find it and use its full path in place of `claude` below:
 
 ```powershell
-claude mcp add travelagent -s user -e DUFFEL_ACCESS_TOKEN=duffel_test_your_token -- "C:\Users\Mario\marmic\.venv\Scripts\travelagent-mcp.exe"
+Get-ChildItem "$env:APPDATA\Claude\claude-code" -Filter claude.exe -Recurse | Select-Object -First 1 -ExpandProperty FullName
+```
+
+Then register it, pasting your paths:
+
+```powershell
+claude mcp add travelagent -s user -e TRAVELAGENT_DOTENV="C:\Users\Mario\marmic\.env" -- "C:\Users\Mario\marmic\.venv\Scripts\travelagent-mcp.exe"
 ```
 
 Three things that will bite you if you skip them:
@@ -264,8 +278,13 @@ Three things that will bite you if you skip them:
   venv, so a bare `travelagent-mcp` will not resolve.
 - **`-s user`** registers it for every project. Without it the server exists only
   inside this folder, which is not where you plan trips.
-- **Pass tokens with `-e`.** The server may start in a different working directory
-  and never find your `.env`.
+- **Point at your `.env` with `TRAVELAGENT_DOTENV`; do not paste the token.**
+  Claude Code starts the server from whatever directory it likes, so it will not
+  find the repo's `.env` on its own — a real problem, and `-e
+  DUFFEL_ACCESS_TOKEN=...` is the obvious fix. It is also the wrong one: it
+  writes your token in plaintext into `~\.claude.json` and leaves you two copies
+  to rotate. The pointer solves the same problem and keeps the secret in the one
+  gitignored file.
 
 **Check it worked:**
 
@@ -308,6 +327,15 @@ is now false and will otherwise keep it hedging every number the tools return.
 | Searches return one odd airline | Duffel **test** token, working as designed | Request live access |
 | `ContractMismatch` | Provider changed its response shape | Send me the message |
 | Claude cannot see the tools | Wrong path, or missing `-s user` | Re-add with the full `.exe` path |
+| `claude` "not recognized" | You have the desktop app, not the npm CLI | Use the bundled `claude.exe` — see Step 10 |
+| `hotels` returns nothing | Hotellook was retired by Travelpayouts | Expected. Not fixable with a token |
+| Every provider "no key" from the MCP server | Server started outside the repo, so no `.env` | Register it with `-e TRAVELAGENT_DOTENV=...` |
+
+> **Tip: you can skip activation entirely.** Anywhere this guide says to activate
+> the venv and run `travelagent ...`, you can instead run
+> `.venv\Scripts\travelagent.exe ...` directly from the repo folder. Same result,
+> and it sidesteps the execution-policy error altogether. The same trick works for
+> `pip` (`.venv\Scripts\python.exe -m pip ...`) and `pytest`.
 
 ## Running the tests
 

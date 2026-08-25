@@ -38,6 +38,22 @@ def _load_dotenv(path: Path) -> None:
         os.environ.setdefault(key, val)
 
 
+def _dotenv_path() -> Path:
+    """Which .env to read.
+
+    Defaults to the one in the working directory, which is right for the CLI.
+    The MCP server is the exception: Claude Code starts it from whatever
+    directory it pleases, so it would never find the repo's .env and its
+    tokens would have to be duplicated into the MCP config in plaintext.
+    TRAVELAGENT_DOTENV points it at the file instead, keeping the secret in
+    one gitignored place.
+    """
+    explicit = os.environ.get("TRAVELAGENT_DOTENV")
+    if explicit and explicit.strip():
+        return Path(explicit.strip())
+    return Path.cwd() / ".env"
+
+
 @dataclass
 class Config:
     duffel_token: str | None = None
@@ -64,7 +80,7 @@ class Config:
 
     @classmethod
     def from_env(cls, dotenv: Path | None = None) -> Config:
-        _load_dotenv(dotenv or Path.cwd() / ".env")
+        _load_dotenv(dotenv or _dotenv_path())
         home = _env("TRAVELAGENT_HOME_AIRPORTS") or ""
         cache = _env("TRAVELAGENT_CACHE_PATH")
         debug_dir = _env("TRAVELAGENT_SCRAPER_DEBUG_DIR")
