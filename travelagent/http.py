@@ -75,7 +75,7 @@ class HttpClient:
                 elif resp.status_code in (401, 403):
                     raise Blocked(
                         f"{resp.status_code} from provider — check credentials "
-                        f"or access tier: {resp.text[:200]}"
+                        f"or access tier: {_provider_message(resp)}"
                     )
                 elif resp.status_code not in RETRY_STATUS:
                     resp.raise_for_status()
@@ -84,7 +84,7 @@ class HttpClient:
                     return resp.json()
                 elif attempt >= self._max_retries:
                     raise TravelAgentError(
-                        f"{resp.status_code} from provider: {resp.text[:200]}"
+                        f"{resp.status_code} from provider: {_provider_message(resp)}"
                     )
 
             await asyncio.sleep(_backoff(attempt))
@@ -95,6 +95,48 @@ class HttpClient:
 def _backoff(attempt: int) -> float:
     """Exponential with jitter, so parallel providers don't resonate."""
     return min(2.0**attempt, 8.0) + random.uniform(0, 0.4)
+
+
+def _provider_message(resp: httpx.Response, limit: int = 400) -> str:
+    """The provider's own explanation, not the first N bytes of its JSON.
+
+    Error bodies routinely lead with a documentation URL, so a blind slice
+    spends its whole budget on boilerplate and severs the sentence naming the
+    fix. Duffel's permission error is the case in point: the useful half is
+    the `message` field, several hundred characters in.
+    """
+    try:
+        body = resp.json()
+    except ValueError:
+        return resp.text[:limit].strip()
+
+    if not isinstance(body, dict):
+        return resp.text[:limit].strip()
+
+    parts: list[str] = []
+    errors = body.get("errors")
+    if isinstance(errors, list):
+        for err in errors:
+            if not isinstance(err, dict):
+                continue
+            msg = err.get("message") or err.get("title")
+            if msg:
+                code = err.get("code")
+                parts.append(f"{msg} [{code}]" if code else str(msg))
+
+    if not parts:
+        for key in ("message", "error_description", "error", "detail"):
+            val = body.get(key)
+            if isinstance(val, str) and val.strip():
+                parts.append(val.strip())
+                break
+            if isinstance(val, dict) and isinstance(val.get("message"), str):
+                parts.append(val["message"])
+                break
+
+    if not parts:
+        return resp.text[:limit].strip()
+    return "; ".join(parts)[:limit]
 
 
 def _rate_limit_detail(resp: httpx.Response) -> str:
