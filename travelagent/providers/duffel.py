@@ -13,9 +13,10 @@ Contract (API v2, verified Aug 2026):
 
 from __future__ import annotations
 
+from datetime import date, timedelta
 from typing import Any
 
-from ..errors import ContractMismatch, NotConfigured
+from ..errors import Blocked, ContractMismatch, NotConfigured
 from ..models import FlightQuote, Freshness, Money, Segment, Slice
 from ..query import FlightSearch
 from ._util import parse_dt, parse_iso_duration, utcnow
@@ -172,21 +173,62 @@ class DuffelProvider(Provider):
         )
 
     async def probe(self, http) -> str:
+        """Prove the token can do the one thing the tool needs: search.
+
+        The obvious probe is GET /air/airlines, and it is worse than useless.
+        Searching is POST /air/offer_requests — it creates a resource, and a
+        read-only token is refused with 403 insufficient_permissions. A GET
+        probe passes on such a token and reports the provider ready while
+        every search fails, which is the exact false green this command
+        exists to prevent. So probe with the real thing, asking for no offers
+        back to keep it the cheapest call that still proves the permission.
+        """
         if not self.configured:
             raise NotConfigured(self.setup_hint())
-        payload = await http.request_json(
-            "GET",
-            f"{BASE_URL}/air/airlines",
-            headers=self._headers(),
-            params={"limit": "1"},
-        )
-        count = len((payload or {}).get("data", []))
+
+        depart = (date.today() + timedelta(days=30)).isoformat()
+        try:
+            payload = await http.request_json(
+                "POST",
+                f"{BASE_URL}/air/offer_requests",
+                headers=self._headers(),
+                params={"return_offers": "false"},
+                json={
+                    "data": {
+                        "slices": [
+                            {
+                                "origin": "LHR",
+                                "destination": "CDG",
+                                "departure_date": depart,
+                            }
+                        ],
+                        "passengers": [{"type": "adult"}],
+                        "cabin_class": "economy",
+                    }
+                },
+            )
+        except Blocked as exc:
+            if "air.offer_requests.create" in str(exc) or "insufficient_permissions" in str(exc):
+                raise Blocked(
+                    "this Duffel token is read-only. Searching creates an offer "
+                    "request, so it needs a read-write token — make a new one in "
+                    "Developers → Access tokens and pick read-write."
+                ) from exc
+            raise
+
+        data = (payload or {}).get("data")
+        if not isinstance(data, dict) or not data.get("id"):
+            raise ContractMismatch(
+                "Duffel accepted the offer request but returned no 'data.id' — "
+                "the API contract may have moved"
+            )
+
         if self.is_sandbox:
             return (
-                f"authenticated (test mode, airlines endpoint returned {count} row) "
+                "authenticated (test mode, search permission confirmed) "
                 "— returns invented fares; not real prices"
             )
-        return f"authenticated (live mode, airlines endpoint returned {count} row)"
+        return "authenticated (live mode, search permission confirmed)"
 
 
 def _baggage_summary(offer: dict[str, Any]) -> str | None:

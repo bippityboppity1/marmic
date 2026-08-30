@@ -140,6 +140,38 @@ async def test_duffel_without_token_is_unconfigured(config, flight_query):
         await provider.search_flights(flight_query, FakeHttp())
 
 
+async def test_duffel_probe_exercises_the_search_permission(config, flight_query):
+    """A GET probe passes on a read-only token that cannot search at all."""
+    http = FakeHttp({"data": {"id": "orq_123"}})
+    detail = await DuffelProvider(config).probe(http)
+
+    call = http.calls[0]
+    assert call["method"] == "POST"
+    assert call["url"].endswith("/air/offer_requests")
+    assert call["params"]["return_offers"] == "false"
+    assert "search permission confirmed" in detail
+
+
+async def test_duffel_probe_rejects_a_response_without_an_id(config):
+    http = FakeHttp({"data": {}})
+    with pytest.raises(ContractMismatch):
+        await DuffelProvider(config).probe(http)
+
+
+async def test_duffel_probe_translates_a_read_only_token(config):
+    """Duffel names the permission; say what it means in plain words."""
+    duffel_403 = Blocked(
+        "403 from provider — check credentials or access tier: This endpoint "
+        "requires a token with 'air.offer_requests.create' permission. "
+        "[insufficient_permissions]"
+    )
+    with pytest.raises(Blocked) as excinfo:
+        await DuffelProvider(config).probe(FailingHttp(duffel_403))
+
+    assert "read-only" in str(excinfo.value)
+    assert "read-write" in str(excinfo.value)
+
+
 # --- Travelpayouts --------------------------------------------------------
 
 
