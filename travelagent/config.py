@@ -22,20 +22,48 @@ def _bool(name: str, default: bool = False) -> bool:
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
+_DOTENV_WROTE: dict[str, str] = {}
+"""What this loader last put into os.environ, per key.
+
+Needed to tell our own writes apart from real environment variables. With
+setdefault they are indistinguishable a moment later, so the file is
+effectively read once per process — and a process that outlives an edit to
+.env keeps serving the old value. The MCP server is exactly that process:
+rotating a token in .env would never reach it.
+"""
+
+
 def _load_dotenv(path: Path) -> None:
     """Minimal .env loader so the CLI works without extra dependencies.
 
-    Existing environment variables always win.
+    A real environment variable always wins over the file. A value this
+    loader wrote on an earlier pass is not a real environment variable, so it
+    is refreshed rather than defended, and a long-lived process picks up an
+    edited .env.
     """
     if not path.is_file():
         return
+
+    seen: set[str] = set()
     for line in path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, _, val = line.partition("=")
         key, val = key.strip(), val.strip().strip("'\"")
-        os.environ.setdefault(key, val)
+        seen.add(key)
+        current = os.environ.get(key)
+        if current is not None and current != _DOTENV_WROTE.get(key):
+            continue  # someone else owns this value; leave it alone
+        os.environ[key] = val
+        _DOTENV_WROTE[key] = val
+
+    # A key we set that has since been removed from the file should not
+    # linger in the environment pretending to still be configured.
+    for stale in set(_DOTENV_WROTE) - seen:
+        if os.environ.get(stale) == _DOTENV_WROTE[stale]:
+            os.environ.pop(stale, None)
+        _DOTENV_WROTE.pop(stale, None)
 
 
 def _dotenv_path() -> Path:
