@@ -101,6 +101,15 @@ class Config:
     )
     cache_enabled: bool = True
 
+    fuel_price_per_litre: float = 1.75
+    fuel_consumption_l_per_100km: float = 6.5
+    toll_per_km: float = 0.08
+    """Driving cost model. Defaults are Italian petrol and autostrada rates.
+
+    Exposed rather than buried because a driving cost is arithmetic, not a
+    quote, and arithmetic you cannot see is arithmetic you cannot check.
+    """
+
     scraping_enabled: bool = False
     scraper_headless: bool = True
     scraper_debug_dir: Path | None = None
@@ -125,6 +134,11 @@ class Config:
             cache_ttl_seconds=int(_env("TRAVELAGENT_CACHE_TTL") or 900),
             cache_path=Path(cache) if cache else cls.__dataclass_fields__["cache_path"].default_factory(),  # type: ignore[misc]
             cache_enabled=_bool("TRAVELAGENT_CACHE", True),
+            fuel_price_per_litre=float(_env("TRAVELAGENT_FUEL_PRICE") or 1.75),
+            fuel_consumption_l_per_100km=float(
+                _env("TRAVELAGENT_FUEL_CONSUMPTION") or 6.5
+            ),
+            toll_per_km=float(_env("TRAVELAGENT_TOLL_PER_KM") or 0.08),
             scraping_enabled=_bool("TRAVELAGENT_SCRAPING", False),
             scraper_headless=_bool("TRAVELAGENT_SCRAPER_HEADLESS", True),
             scraper_debug_dir=Path(debug_dir) if debug_dir else None,

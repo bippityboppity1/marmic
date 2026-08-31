@@ -60,6 +60,60 @@ class Money:
         return cls(Decimal(str(amount)), currency)
 
 
+class Mode(enum.Enum):
+    """How a journey is made, when it is not a flight."""
+
+    DRIVE = "drive"
+    RAIL = "rail"
+    FERRY = "ferry"
+    COACH = "coach"
+
+    @property
+    def label(self) -> str:
+        return {"drive": "car", "rail": "train", "ferry": "ferry", "coach": "coach"}[
+            self.value
+        ]
+
+
+@dataclass
+class GroundQuote:
+    """A journey by road, rail or sea.
+
+    Deliberately not a FlightQuote. A drive has no market price at all, only a
+    modelled cost from distance, fuel and tolls, so it can never be
+    **bookable** and must not sit in a table pretending to be a fare. Keeping
+    it a separate type stops that happening by accident.
+
+    Comparing a drive against a fare is the whole point — Giovinazzo to Matera
+    is a car journey and no airline will ever quote it — but the reader has to
+    see which number is a price and which is arithmetic.
+    """
+
+    provider: str
+    mode: Mode
+    origin: str
+    destination: str
+    distance_km: float | None = None
+    duration_minutes: int | None = None
+    price: Money | None = None
+    freshness: Freshness = Freshness.ESTIMATE
+    bookable: bool = False
+    cost_breakdown: dict[str, Money] = field(default_factory=dict)
+    """Named components — fuel, tolls, fares — so the total can be argued with."""
+    notes: list[str] = field(default_factory=list)
+    observed_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+    @property
+    def quotable(self) -> bool:
+        """True when this number may be stated as an actual price."""
+        return self.bookable and self.freshness.is_quotable
+
+    @property
+    def hours(self) -> float | None:
+        return round(self.duration_minutes / 60, 1) if self.duration_minutes else None
+
+
 @dataclass
 class Segment:
     """One aircraft, gate to gate."""
@@ -289,6 +343,7 @@ class SearchResult:
 
     flights: list[FlightQuote] = field(default_factory=list)
     hotels: list[HotelQuote] = field(default_factory=list)
+    ground: list[GroundQuote] = field(default_factory=list)
     errors: list[ProviderError] = field(default_factory=list)
     providers_queried: list[str] = field(default_factory=list)
     query: dict[str, Any] = field(default_factory=dict)

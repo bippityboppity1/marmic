@@ -9,8 +9,8 @@ from __future__ import annotations
 import abc
 from typing import TYPE_CHECKING
 
-from ..models import FlightQuote, HotelQuote
-from ..query import FlightSearch, HotelSearch
+from ..models import FlightQuote, GroundQuote, HotelQuote
+from ..query import FlightSearch, GroundSearch, HotelSearch
 
 if TYPE_CHECKING:
     from ..config import Config
@@ -21,6 +21,7 @@ class Provider(abc.ABC):
     name: str = "provider"
     supports_flights: bool = False
     supports_hotels: bool = False
+    supports_ground: bool = False
     is_scraper: bool = False
     retired: bool = False
     """True when the upstream service is permanently gone.
@@ -60,6 +61,11 @@ class Provider(abc.ABC):
     async def search_hotels(
         self, query: HotelSearch, http: HttpClient
     ) -> list[HotelQuote]:
+        raise NotImplementedError
+
+    async def search_ground(
+        self, query: GroundSearch, http: HttpClient
+    ) -> list[GroundQuote]:
         raise NotImplementedError
 
     async def probe(self, http: HttpClient) -> str:

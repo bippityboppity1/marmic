@@ -270,3 +270,48 @@ def render_calendar(calendar: dict, origin: str, destination: str) -> str:
         "_Cached fare data, not live availability — confirm before booking._",
     ]
     return "\n".join(rows)
+
+def render_ground(result: SearchResult) -> str:
+    """Render road/rail/sea journeys.
+
+    Kept visually distinct from a fare table on purpose. Every number here is
+    modelled, so the Basis column says `est.` and the assumptions are printed
+    underneath rather than hidden — a driving cost is an argument, not a quote.
+    """
+    nl = chr(10)
+    q = result.query
+    header = f"### Journey {q.get('origin')} → {q.get('destination')}"
+
+    if not result.ground:
+        parts = [header, "", "_No ground route found._"]
+        parts += [f"_{e.provider}: {e.message}_" for e in result.errors]
+        return nl.join(parts)
+
+    rows = [
+        "| Mode | Time | Distance | Est. cost | Basis |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for g in result.ground:
+        rows.append(
+            "| {mode} | {dur} | {dist} | {cost} | {basis} |".format(
+                mode=g.mode.label,
+                dur=_fmt_duration(g.duration_minutes),
+                dist=f"{g.distance_km:,.0f} km" if g.distance_km else "—",
+                cost=f"{g.price} each way" if g.price else "—",
+                basis="**bookable**" if g.quotable else g.freshness.label,
+            )
+        )
+
+    parts = [header, "", nl.join(rows)]
+
+    first = result.ground[0]
+    if first.cost_breakdown:
+        bits = ", ".join(f"{k} {v}" for k, v in first.cost_breakdown.items())
+        parts += ["", f"**Cost model** {bits}."]
+    if first.notes:
+        parts += ["", *(f"- {n}" for n in first.notes)]
+
+    stamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
+    parts += ["", f"_Modelled {stamp}. Not a purchasable price._"]
+    parts += [f"_{e.provider}: {e.message}_" for e in result.errors]
+    return nl.join(parts)

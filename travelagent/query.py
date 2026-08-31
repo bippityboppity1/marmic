@@ -149,3 +149,32 @@ class HotelSearch:
             "currency": self.currency,
             "limit": self.limit,
         }
+
+
+@dataclass
+class GroundSearch:
+    """A door-to-door journey by means other than flying.
+
+    Origin and destination are free text, not IATA codes: the whole reason
+    this exists is that the interesting ground destinations are towns with no
+    airport anywhere near them.
+    """
+
+    origin: str
+    destination: str
+    depart_date: date | None = None
+    passengers: int = 1
+    currency: str = "EUR"
+
+    def __post_init__(self) -> None:
+        self.origin = self.origin.strip()
+        self.destination = self.destination.strip()
+        self.currency = self.currency.strip().upper()
+        if self.depart_date is not None:
+            self.depart_date = _parse_date(self.depart_date)
+        if not self.origin or not self.destination:
+            raise TravelAgentError("origin and destination are both required")
+        if self.origin.casefold() == self.destination.casefold():
+            raise TravelAgentError("origin and destination are the same place")
+        if self.passengers < 1:
+            raise TravelAgentError("need at least one passenger")

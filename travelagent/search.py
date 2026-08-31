@@ -20,7 +20,7 @@ from .models import (
 )
 from .providers.base import Provider
 from .providers.registry import active_providers
-from .query import FlightSearch, HotelSearch
+from .query import FlightSearch, GroundSearch, HotelSearch
 from .serde import flight_from_dict, flight_to_dict, hotel_from_dict, hotel_to_dict
 
 # Connections tighter than this are the single most common way a plan breaks.
@@ -66,6 +66,48 @@ async def search_hotels(
     result = await _fan_out(config, providers, [(p, query) for p in providers], kind="hotels")
     result.query = query.cache_payload()
     result.hotels = rank_hotels(dedupe_hotels(result.hotels))
+    return result
+
+
+async def search_ground(
+    query: GroundSearch,
+    config: Config | None = None,
+    providers: list[Provider] | None = None,
+) -> SearchResult:
+    """Price a journey by road, rail or sea.
+
+    Deliberately does not go through the flight fan-out. Those results are
+    cached and deduped because fares move minute to minute and repeat across
+    sources; a road distance does neither. Keeping this path simple also
+    keeps a modelled cost out of the cache that stores real prices.
+    """
+    config = config or Config.from_env()
+    providers = (
+        providers if providers is not None else active_providers(config, "ground")
+    )
+
+    result = SearchResult(providers_queried=[p.name for p in providers])
+    result.query = {
+        "origin": query.origin,
+        "destination": query.destination,
+        "depart": query.depart_date.isoformat() if query.depart_date else None,
+        "passengers": query.passengers,
+    }
+
+    async with HttpClient(config.timeout_seconds, config.max_retries) as http:
+        for provider in providers:
+            try:
+                result.ground.extend(await provider.search_ground(query, http))
+            except TravelAgentError as exc:
+                result.errors.append(
+                    ProviderError(provider.name, str(exc), getattr(exc, "kind", "error"))
+                )
+            except Exception as exc:  # pragma: no cover - defensive
+                result.errors.append(
+                    ProviderError(provider.name, f"{type(exc).__name__}: {exc}", "error")
+                )
+
+    result.ground.sort(key=lambda g: (g.duration_minutes or 10**6))
     return result
 
 

@@ -98,11 +98,27 @@ travelagent flights NAP LHR --depart 2026-10-15 --return 2026-10-22 --flex 3
 # Stays
 travelagent hotels Naples --checkin 2026-10-15 --checkout 2026-10-18 --min-stars 3
 
+# By road — the option no airline will quote you
+travelagent drive Giovinazzo Matera
+
 travelagent doctor
 travelagent cache --clear
 ```
 
 Add `--json` for machine-readable output.
+
+## Ground journeys
+
+`drive` prices a road trip from a routing engine plus a fuel-and-tolls model.
+Every number it returns is an **estimate** and never bookable, because nobody
+sells you a drive — the cost model is printed alongside the total so it can be
+argued with, and tuned via `TRAVELAGENT_FUEL_PRICE`,
+`TRAVELAGENT_FUEL_CONSUMPTION` and `TRAVELAGENT_TOLL_PER_KM`.
+
+Rail and ferry are modelled in the types (`Mode.RAIL`, `Mode.FERRY`) but have no
+adapter yet. Neither Trenitalia nor the Adriatic ferry operators publish a usable
+free API, so both would need either a paid data provider or a scraper, and a
+half-built adapter that silently returns nothing is worse than an honest gap.
 
 ## What it flags without being asked
 

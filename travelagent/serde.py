@@ -10,7 +10,15 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
-from .models import FlightQuote, Freshness, HotelQuote, Money, Segment, Slice
+from .models import (
+    FlightQuote,
+    Freshness,
+    GroundQuote,
+    HotelQuote,
+    Money,
+    Segment,
+    Slice,
+)
 
 
 def _dt(value: datetime | None) -> str | None:
@@ -156,3 +164,21 @@ def hotel_from_dict(d: dict[str, Any]) -> HotelQuote:
         deep_link=d.get("deep_link"),
         observed_at=_undt(d.get("observed_at")),  # type: ignore[arg-type]
     )
+
+
+def ground_to_dict(g: GroundQuote) -> dict[str, Any]:
+    return {
+        "provider": g.provider,
+        "mode": g.mode.value,
+        "origin": g.origin,
+        "destination": g.destination,
+        "distance_km": g.distance_km,
+        "duration_minutes": g.duration_minutes,
+        "price": money_to_dict(g.price) if g.price else None,
+        "freshness": g.freshness.value,
+        "bookable": g.bookable,
+        "quotable": g.quotable,
+        "cost_breakdown": {k: money_to_dict(v) for k, v in g.cost_breakdown.items()},
+        "notes": list(g.notes),
+        "observed_at": _dt(g.observed_at),
+    }

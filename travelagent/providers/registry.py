@@ -5,6 +5,7 @@ from __future__ import annotations
 from ..config import Config
 from .base import Provider
 from .duffel import DuffelProvider
+from .ground import DriveProvider
 from .hotellook import HotellookProvider
 from .travelpayouts import TravelpayoutsProvider
 
@@ -19,6 +20,7 @@ def all_providers(config: Config) -> list[Provider]:
         DuffelProvider(config),
         TravelpayoutsProvider(config),
         HotellookProvider(config),
+        DriveProvider(config),
     ]
 
     try:

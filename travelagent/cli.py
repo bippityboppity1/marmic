@@ -15,10 +15,10 @@ from datetime import date
 from .config import Config
 from .errors import TravelAgentError
 from .http import HttpClient
-from .query import FlightSearch, HotelSearch
-from .report import render_calendar, render_flights, render_hotels
-from .search import probe_providers, search_flights, search_hotels
-from .serde import flight_to_dict, hotel_to_dict
+from .query import FlightSearch, GroundSearch, HotelSearch
+from .report import render_calendar, render_flights, render_ground, render_hotels
+from .search import probe_providers, search_flights, search_ground, search_hotels
+from .serde import flight_to_dict, ground_to_dict, hotel_to_dict
 
 
 def _add_common(parser: argparse.ArgumentParser) -> None:
@@ -65,6 +65,13 @@ def build_parser() -> argparse.ArgumentParser:
     calendar.add_argument("destination")
     calendar.add_argument("--month", required=True, help="YYYY-MM")
     calendar.add_argument("--currency")
+
+    drive = sub.add_parser("drive", help="price a journey by road")
+    drive.add_argument("origin", help="place name, e.g. Giovinazzo")
+    drive.add_argument("destination", help="place name, e.g. Matera")
+    drive.add_argument("--depart", help="YYYY-MM-DD (optional)")
+    drive.add_argument("--passengers", type=int, default=1)
+    _add_common(drive)
 
     sub.add_parser("doctor", help="check every provider's credentials and contract")
 
@@ -155,6 +162,27 @@ async def _cmd_calendar(args, config: Config) -> str:
     return render_calendar(calendar, query.origin, query.destination)
 
 
+async def _cmd_drive(args, config: Config) -> str:
+    query = GroundSearch(
+        origin=args.origin,
+        destination=args.destination,
+        depart_date=args.depart,
+        passengers=args.passengers,
+        currency=args.currency or config.currency,
+    )
+    result = await search_ground(query, config)
+    if args.json:
+        return json.dumps(
+            {
+                "query": result.query,
+                "journeys": [ground_to_dict(g) for g in result.ground],
+                "errors": [vars(e) for e in result.errors],
+            },
+            indent=2,
+        )
+    return render_ground(result)
+
+
 def _doctor_footer(rows) -> list[str]:
     """Say precisely which of the two problems each provider has.
 
@@ -227,6 +255,8 @@ def main(argv: list[str] | None = None) -> int:
             print(asyncio.run(_cmd_hotels(args, config)))
         elif args.command == "calendar":
             print(asyncio.run(_cmd_calendar(args, config)))
+        elif args.command == "drive":
+            print(asyncio.run(_cmd_drive(args, config)))
         elif args.command == "doctor":
             print(asyncio.run(_cmd_doctor(config)))
         elif args.command == "cache":
