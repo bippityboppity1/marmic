@@ -17,6 +17,7 @@ fix rather than a mystery.
 from __future__ import annotations
 
 import asyncio
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -32,6 +33,18 @@ BLOCK_MARKERS = (
     "access denied",
     "verify you are human",
 )
+
+CONSENT_REJECT_RE = re.compile(
+    r"^\s*(reject all|reject|rifiuta tutto|rifiuta|alle ablehnen|tout refuser|"
+    r"rechazar todo|weiger alles)\s*$",
+    re.IGNORECASE,
+)
+"""Buttons that decline a cookie-consent wall, across the locales this may load in.
+
+Declining rather than accepting is deliberate: the prices are identical either
+way, so there is no reason to opt someone's browser into ad personalisation to
+read a flight time.
+"""
 
 _last_request_at: float = 0.0
 _throttle_lock = asyncio.Lock()
@@ -97,8 +110,9 @@ class ScraperProvider(Provider):
                 )
                 page = await context.new_page()
                 await page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
+                await self._dismiss_consent(page)
 
-                html_head = (await page.content())[:4000].lower()
+                html_head = (await self._content(page))[:4000].lower()
                 if any(m in html_head for m in BLOCK_MARKERS):
                     await self._dump(page, "blocked")
                     raise Blocked(f"{self.name} served an anti-bot challenge")
@@ -114,9 +128,51 @@ class ScraperProvider(Provider):
 
                 # Let lazy price nodes settle before reading.
                 await page.wait_for_timeout(2500)
-                return await page.content()
+                return await self._content(page)
             finally:
                 await browser.close()
+
+    @staticmethod
+    async def _content(page: Any, attempts: int = 3) -> str:
+        """page.content() during an in-flight navigation throws. Retry briefly."""
+        last: Exception | None = None
+        for _ in range(attempts):
+            try:
+                return await page.content()
+            except Exception as exc:
+                last = exc
+                await page.wait_for_timeout(1000)
+        raise TravelAgentError(f"could not read page content: {last}")
+
+    async def _dismiss_consent(self, page: Any, timeout_ms: int = 6000) -> bool:
+        """Clear a cookie-consent interstitial before looking for results.
+
+        Google serves EU visitors a full-page "Before you continue" wall ahead
+        of any result. Without this the scraper reads that page, finds no
+        result nodes, and reports a layout change — a misleading diagnosis of
+        a problem that is really one click.
+
+        Returns True if a wall was dismissed. Absence is the normal case and
+        never an error.
+        """
+        for locator in (
+            page.get_by_role("button", name=CONSENT_REJECT_RE),
+            page.locator('form button:has-text("Reject")'),
+        ):
+            try:
+                await locator.first.click(timeout=timeout_ms)
+            except Exception:
+                continue
+            # Dismissing the wall triggers a navigation. Let it finish, or the
+            # next page.content() races it and throws mid-flight.
+            for state in ("domcontentloaded", "networkidle"):
+                try:
+                    await page.wait_for_load_state(state, timeout=timeout_ms)
+                except Exception:
+                    pass
+            await page.wait_for_timeout(1200)
+            return True
+        return False
 
     async def _dump(self, page: Any, reason: str) -> None:
         target = self.config.scraper_debug_dir
